@@ -509,6 +509,10 @@ class Class(CodegenModel):
         source_name: docx4j fork: the local name of the class as the
             schema declared it, when the generator has renamed it, e.g.
             an inner class promoted to a root class by UnnestClasses
+        scope_name: docx4j fork: the qualified name of the class whose
+            compound field made the generator invent this one, the
+            analogue of JAXB's @XmlElementDecl(scope=...); set by
+            DisambiguateChoices and by nothing else
         default: The default value
         fixed: Specifies whether the default value is fixed
         substitutions: The list of all the substitution groups this class belongs to
@@ -534,6 +538,7 @@ class Class(CodegenModel):
     help: str | None = field(default=None)
     meta_name: str | None = field(default=None)
     source_name: str | None = field(default=None, compare=False)
+    scope_name: str | None = field(default=None, compare=False)
     default: Any = field(default=None, compare=False)
     fixed: bool = field(default=False, compare=False)
     substitutions: list[str] = field(default_factory=list)

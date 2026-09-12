@@ -67,7 +67,12 @@ TABLE = {
         "CT_Body": "Body",
         "ST_Jc": "STJc",
     },
-    "elements": {"document": "Document", "ins": "RunIns", "t": "Text"},
+    "elements": {
+        "document": "Document",
+        "ins": "RunIns",
+        "ins@CT_P": "RunIns",
+        "t": "Text",
+    },
 }
 
 OPTIONS = "    <UnnestClasses>true</UnnestClasses>\n    <ClassNames>names</ClassNames>"
@@ -109,14 +114,40 @@ def test_global_elements_keep_their_xml_name(gen) -> None:
     assert 'name = "document"' in source
 
 
-def test_element_specific_classes_are_renamed(gen) -> None:
+def test_element_specific_classes_need_a_scope(gen) -> None:
     source = gen(SCHEMA, options=OPTIONS, files=names()).source
 
-    # The choice has two elements of the same type, the generator
-    # creates a class per element name; `moveTo` is not in the table.
+    # The choice has two elements of the same type, so the generator
+    # creates a class per element name. `ins@CT_P` names one of them;
+    # `moveTo` has no scoped entry and keeps the conventions.
     assert "class RunIns(R):" in source
     assert "class MoveTo(R):" in source
     assert "class Ins" not in source
+
+
+def test_an_unscoped_entry_leaves_a_choice_class_alone(gen) -> None:
+    table = json.loads(json.dumps(TABLE))
+    del table["elements"]["ins@CT_P"]
+
+    source = gen(SCHEMA, options=OPTIONS, files=names(table)).source
+
+    # JAXB had no class for these, it had a JAXBElement per element name
+    # over the shared type, so the unscoped `ins` entry names the payload
+    # class and must not be spent on the intermediate one.
+    assert "class RunIns" not in source
+    assert "class Ins(R):" in source
+    assert "class MoveTo(R):" in source
+
+
+def test_a_scope_is_the_enclosing_type(gen) -> None:
+    table = json.loads(json.dumps(TABLE))
+    table["elements"]["ins@CT_Body"] = "Wrong"
+    del table["elements"]["ins@CT_P"]
+
+    source = gen(SCHEMA, options=OPTIONS, files=names(table)).source
+
+    assert "class Wrong" not in source
+    assert "class Ins(R):" in source
 
 
 def test_unnested_local_elements_are_renamed(gen) -> None:
@@ -152,19 +183,39 @@ def test_the_result_parses_and_serializes(gen) -> None:
     assert result == xml
 
 
-def test_a_collision_is_reported_and_disambiguated(gen) -> None:
+def test_two_types_that_collide_are_disambiguated(gen) -> None:
+    table = json.loads(json.dumps(TABLE))
+    table["types"]["CT_Body"] = "Same"
+    table["types"]["CT_PPr"] = "Same"
+    del table["elements"]["t"]
+
+    generated = gen(SCHEMA, options=OPTIONS, files=names(table))
+    source = generated.source
+
+    assert "is mapped to `Same`" in generated.output
+    # Neither class is overwritten, the duplicate name handler suffixes
+    # both, as it does for any two same named non element classes, and
+    # the table's casing survives the suffix.
+    assert "class Same1:" in source
+    assert "class Same2:" in source
+    assert "class Same:" not in source
+
+
+def test_an_element_never_takes_a_name_a_type_owns(gen) -> None:
     table = json.loads(json.dumps(TABLE))
     table["types"]["CT_Body"] = "Text"
 
     generated = gen(SCHEMA, options=OPTIONS, files=names(table))
     source = generated.source
 
-    assert "is mapped to `Text`" in generated.output
-    # Neither class is overwritten, the duplicate name handler suffixes
-    # both, as it does for any two same named non element classes.
-    assert "class Text1:" in source
-    assert "class Text2:" in source
-    assert "class Text:" not in source
+    # `elements` in a JAXB derived table names the payload class of a
+    # JAXBElement, which `types` already names. The type keeps the name
+    # and the element is left with the conventions, rather than both of
+    # them ending up as Text1 and Text2.
+    assert "element t is left alone, `Text` belongs to CT_Body" in generated.output
+    assert "class Text:" in source
+    assert "class Text1" not in source
+    assert "class CtRT:" in source
 
 
 def test_it_composes_with_the_namespaces_layout(gen) -> None:
@@ -214,12 +265,16 @@ def test_the_table_is_loaded_per_namespace(tmp_path) -> None:
 
     table = ClassNames.load(directory)
 
-    assert len(table) == 9
+    assert len(table) == 10
     assert table.find("urn:fork", "CT_PPr", False) == "PPr"
     assert table.find("urn:other", "CT_PPr", False) == "Other"
     assert table.find("urn:fork", "CT_PPr", True) is None
     assert table.find("urn:fork", "t", True) == "Text"
     assert table.find(None, "CT_PPr", False) is None
+    assert table.find("urn:fork", "ins@CT_P", True) is None
+    assert table.find_scoped("urn:fork", "ins", "{urn:fork}CT_P") == "RunIns"
+    assert table.find_scoped("urn:fork", "ins", "{urn:fork}CT_Body") is None
+    assert table.find_scoped("urn:fork", "ins", "{urn:other}CT_P") is None
     assert table.java_packages == {"urn:fork": "org.docx4j.fork"}
     assert "PPr" in table.names()
 

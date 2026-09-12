@@ -188,7 +188,10 @@ class Filters:
 
         Steps:
             - Apply substitutions before naming conventions
-            - docx4j fork: stop if the explicit name table chose the name
+            - docx4j fork: stop if the explicit name table chose the name,
+              or if RenameDuplicateClasses has added a numeric suffix to
+              one, so that `CTTrackChange1` does not become
+              `CttrackChange1`
             - Apply naming convention
             - Apply substitutions after naming conventions
 
@@ -200,7 +203,7 @@ class Filters:
         """
         name = self.apply_substitutions(name, ObjectType.CLASS)
 
-        if name in self.class_names:
+        if name in self.class_names or name.rstrip("0123456789") in self.class_names:
             return name
 
         name = self.safe_name(name, self.class_safe_prefix, self.class_case)

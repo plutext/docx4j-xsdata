@@ -419,7 +419,7 @@ class name table: one json file per namespace. Unset, the default, means the
   "namespace": "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
   "java_package": "org.docx4j.wml",
   "types": { "CT_PPr": "PPr", "CT_P": "P", "CT_Settings": "CTSettings", "ST_Jc": "STJc" },
-  "elements": { "document": "Document", "ins": "RunIns", "t": "Text" }
+  "elements": { "document": "Document", "t": "Text", "ins@CT_P": "RunIns" }
 }
 ```
 
@@ -428,12 +428,17 @@ names such as docx4j's `org.docx4j.wml.ObjectFactory`. This can.
 
 * `types` maps the name of a `complexType` or `simpleType` in that namespace.
 * `elements` maps the name of an element in that namespace: a global element
-  (`document`), an element specific class the generator creates where one type serves
-  several element names in a compound field (`ins`), and the anonymous type declared
-  inside an element that `UnnestClasses` promotes to the top level (`t` inside `CT_R`,
-  the nested `R.T`, becomes `Text`). For a promoted type the promoted name in `types`
-  (`CT_R_t`) wins over the element name, which is the way out if an element and an
-  attribute of the same name both declare an anonymous type.
+  (`document`), and the anonymous type declared inside an element that `UnnestClasses`
+  promotes to the top level (`t` inside `CT_R`, the nested `R.T`, becomes `Text`). For
+  a promoted type the promoted name in `types` (`CT_R_t`) wins over the element name,
+  which is the way out if an element and an attribute of the same name both declare an
+  anonymous type.
+* An `elements` key may carry a **scope**, `element@EnclosingType`, which addresses the
+  intermediate class the generator invents where one type serves several element names
+  in one compound field (`w:ins` and `w:del` of `CT_P`, both `CT_RunTrackChange`). It is
+  the analogue of JAXB's `@XmlElementDecl(scope=...)`. The enclosing type is read in the
+  namespace of the file the entry is written in, so `t@CT_R` in the wml file is wml's
+  `CT_R` and not a `CT_R` of another namespace that happens to hold a wml element.
 * `java_package` is not used by the generator, it documents where the names come from.
 * Names the table does not mention keep the naming conventions.
 
@@ -442,16 +447,36 @@ convention, not through it, so `CTSettings` stays `CTSettings` and does not beco
 `Ctsettings`. Substitutions still apply before the table is consulted; they do not
 apply after it.
 
-The same element name may map to several classes, which is what happens when an element
-name is used in several scopes. They all get the name, and the ordinary duplicate class
-name handling then disambiguates them with numeric suffixes. Every such collision, with
-any class the table did not rename, is reported:
+Two rules keep a table derived from a JAXB model from shredding the output, because JAXB
+has one class where the generator has several:
+
+* **An intermediate choice class is renamed only by a scoped entry.** Where a compound
+  field has two elements of the same type, the generator invents a class per element
+  name so the two can be told apart; those classes carry no xml name of their own, the
+  element name lives in the field's `choices` metadata. JAXB had no class for them
+  either, it had one `JAXBElement` per element name over the shared type, so the
+  unscoped entry names that shared type and an unscoped entry never reaches them. Write
+  `ins@CT_P` to name one.
+* **An element entry never takes a name another class owns.** `elements` in a JAXB
+  derived table names the *payload* class of a `JAXBElement`, which the `types` section
+  already names. Applying both would push the real class to `Text1` and spread
+  `Text2`..`Text7` over the elements that share it, so the element entry is dropped and
+  reported instead:
 
 ```
-ClassNames: t is mapped to `Text`, which CT_Body already owns;
+ClassNames: element t is left alone, `Text` belongs to CT_Body
+```
+
+The `types` section is applied first, so the class the schema declares as a type is the
+one that keeps the bare name. Two `types` entries that want the same name are both kept
+and disambiguated with the ordinary numeric suffixes, reported as:
+
+```
+ClassNames: CT_Body is mapped to `Same`, which CT_PPr already owns;
 the generator will add a numeric suffix
 ```
 
+A suffixed name is still emitted verbatim (`CTTrackChange1`, not `CttrackChange1`).
 A class is never overwritten or merged because of the table. A mapped class keeps the
 xml name the schema gave it (`Meta.name`), so renaming a class never changes the
 document it reads or writes. An entry whose value is not a valid python class name is

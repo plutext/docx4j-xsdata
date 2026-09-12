@@ -196,6 +196,13 @@ class DisambiguateChoices(RelativeHandlerInterface):
         If the reference class is going to be inner, ensure the class name is
         unique, otherwise we will still end-up with ambiguous choices.
 
+        docx4j fork: the source class qualified name is kept as the new
+        class's scope_name, so that the `<ClassNames>` table can address
+        this one element of this one compound field, `t@CT_R`, the way
+        JAXB's `@XmlElementDecl(scope=...)` does. It is the qualified
+        name because one element can be a choice of two same named types
+        in two namespaces, wml's `w:t` in wml's `CT_R` and in OMML's.
+
         Args:
             source: The source class instance
             choice: The ambiguous choice attr instance
@@ -213,6 +220,7 @@ class DisambiguateChoices(RelativeHandlerInterface):
             location=source.location,
             ns_map=source.ns_map,
             nillable=choice.restrictions.nillable or False,
+            scope_name=source.qname,
         )
 
     @classmethod
