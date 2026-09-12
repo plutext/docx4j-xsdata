@@ -17,7 +17,11 @@ from docx4j_xsdata.exceptions import SerializerError, XmlWriterError
 from docx4j_xsdata.formats.converter import converter
 from docx4j_xsdata.formats.dataclass.context import XmlContext
 from docx4j_xsdata.formats.dataclass.models.elements import XmlMeta, XmlVar
-from docx4j_xsdata.formats.dataclass.serializers.config import SerializerConfig
+from docx4j_xsdata.formats.dataclass.serializers.config import (
+    BOOL_NUMERIC,
+    BOOL_WORDS,
+    SerializerConfig,
+)
 from docx4j_xsdata.models.enums import DataType, Namespace, QNames
 from docx4j_xsdata.utils import collections, namespaces
 from docx4j_xsdata.utils.constants import EMPTY_MAP
@@ -311,6 +315,9 @@ class EventHandler(abc.ABC):
         if isinstance(data, list) and not data:
             return None
 
+        if self.config.bool_format == BOOL_NUMERIC and (data is True or data is False):
+            return "1" if data else "0"
+
         return converter.serialize(data, ns_map=self.ns_map)
 
     @abc.abstractmethod
@@ -549,7 +556,12 @@ class EventGenerator:
         yield XmlWriterEvent.START, qname
 
         for key, value in self.next_attribute(
-            obj, meta, nillable, xsi_type, self.config.ignore_default_attributes
+            obj,
+            meta,
+            nillable,
+            xsi_type,
+            self.config.ignore_default_attributes,
+            self.config.bool_format,
         ):
             yield XmlWriterEvent.ATTR, key, value
 
@@ -888,11 +900,13 @@ class EventGenerator:
             if datatype != DataType.STRING:
                 yield XmlWriterEvent.ATTR, QNames.XSI_TYPE, QName(str(datatype))
 
-        yield XmlWriterEvent.DATA, self.encode_primitive(value, var)
+        yield (
+            XmlWriterEvent.DATA,
+            self.encode_primitive(value, var, self.config.bool_format),
+        )
         yield XmlWriterEvent.END, var.qname
 
-    @classmethod
-    def convert_data(cls, value: Any, var: XmlVar) -> EventIterator:
+    def convert_data(self, value: Any, var: XmlVar) -> EventIterator:
         """Convert a value assigned to a text field to sax events.
 
         Args:
@@ -902,7 +916,10 @@ class EventGenerator:
         Yields:
             An iterator of sax events.
         """
-        yield XmlWriterEvent.DATA, cls.encode_primitive(value, var)
+        yield (
+            XmlWriterEvent.DATA,
+            self.encode_primitive(value, var, self.config.bool_format),
+        )
 
     @classmethod
     def next_value(cls, obj: Any, meta: XmlMeta) -> Iterator[tuple[XmlVar, Any]]:
@@ -968,6 +985,7 @@ class EventGenerator:
         nillable: bool,
         xsi_type: str | None,
         ignore_optionals: bool,
+        bool_format: str = BOOL_WORDS,
     ) -> Iterator[tuple[str, Any]]:
         """Produce the next attribute value to convert.
 
@@ -992,7 +1010,7 @@ class EventGenerator:
                 ):
                     continue
 
-                yield var.qname, cls.encode_primitive(value, var)
+                yield var.qname, cls.encode_primitive(value, var, bool_format)
             else:
                 yield from getattr(obj, var.name, EMPTY_MAP).items()
 
@@ -1003,7 +1021,9 @@ class EventGenerator:
             yield QNames.XSI_NIL, "true"
 
     @classmethod
-    def encode_primitive(cls, value: Any, var: XmlVar) -> Any:
+    def encode_primitive(
+        cls, value: Any, var: XmlVar, bool_format: str = BOOL_WORDS
+    ) -> Any:
         """Encode a value for xml serialization.
 
         Converts values to strings. QName instances is an exception,
@@ -1019,6 +1039,8 @@ class EventGenerator:
         Args:
             value: The simple type vale to encode
             var: The field metadata instance
+            bool_format: docx4j fork: the xsd:boolean spelling,
+                `words` for `true`/`false`, `numeric` for `1`/`0`
 
         Returns:
             The encoded value.
@@ -1027,10 +1049,13 @@ class EventGenerator:
             return value
 
         if collections.is_array(value):
-            return [cls.encode_primitive(v, var) for v in value]
+            return [cls.encode_primitive(v, var, bool_format) for v in value]
 
         if isinstance(value, Enum):
-            return cls.encode_primitive(value.value, var)
+            return cls.encode_primitive(value.value, var, bool_format)
+
+        if bool_format == BOOL_NUMERIC and (value is True or value is False):
+            return "1" if value else "0"
 
         return converter.serialize(value, format=var.format)
 

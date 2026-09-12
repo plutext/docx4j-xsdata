@@ -256,6 +256,36 @@ Ignore optional attributes with default values.
 
 **Default:** `False`
 
+### `bool_format`
+
+**docx4j fork option.** The `xsd:boolean` spelling on output: `words` for
+`true`/`false`, `numeric` for `1`/`0`, which is what Word writes. Both spellings are
+valid XML and the parser accepts all four, so this only matters when a saved document
+is compared with the original.
+
+It applies to attributes, element text, token lists and to the values of wildcard fields.
+
+```python
+>>> from dataclasses import dataclass, field
+>>> from docx4j_xsdata.formats.dataclass.serializers import XmlSerializer
+>>> from docx4j_xsdata.formats.dataclass.serializers.config import SerializerConfig
+...
+>>> @dataclass
+... class Bold:
+...     class Meta:
+...         name = "b"
+...     val: bool | None = field(default=None, metadata={"type": "Attribute"})
+...
+>>> config = SerializerConfig(xml_declaration=False, bool_format="numeric")
+>>> print(XmlSerializer(config=config).render(Bold(val=True)))
+<b val="1"/>
+
+```
+
+**Type**: `str`
+
+**Default:** `"words"`
+
 ### `schema_location`
 
 Render a `xsi:schemaLocation` attribute on the root element.

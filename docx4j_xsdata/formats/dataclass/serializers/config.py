@@ -3,6 +3,16 @@ from collections.abc import Callable
 from dataclasses import InitVar, dataclass
 from typing import Any
 
+from docx4j_xsdata.exceptions import SerializerError
+
+BOOL_WORDS = "words"
+"""docx4j fork: render xsd:boolean values as `true` and `false`."""
+
+BOOL_NUMERIC = "numeric"
+"""docx4j fork: render xsd:boolean values as `1` and `0`, as Word does."""
+
+BOOL_FORMATS = (BOOL_WORDS, BOOL_NUMERIC)
+
 
 @dataclass
 class SerializerConfig:
@@ -20,6 +30,8 @@ class SerializerConfig:
         no_namespace_schema_location: xsi:noNamespaceSchemaLocation attribute value
         globalns: Dictionary containing global variables to extend or
             overwrite for typing
+        bool_format: docx4j fork: the xsd:boolean spelling on output,
+            `words` for `true`/`false`, `numeric` for `1`/`0`
     """
 
     encoding: str = "UTF-8"
@@ -30,6 +42,7 @@ class SerializerConfig:
     schema_location: str | None = None
     no_namespace_schema_location: str | None = None
     globalns: dict[str, Callable] | None = None
+    bool_format: str = BOOL_WORDS
 
     # Deprecated
     pretty_print: InitVar[bool] = False
@@ -37,6 +50,12 @@ class SerializerConfig:
 
     def __post_init__(self, pretty_print: bool, pretty_print_indent: str | None):
         """Handle deprecated pretty print/indent behaviour."""
+        if self.bool_format not in BOOL_FORMATS:
+            raise SerializerError(
+                f"Unknown bool format `{self.bool_format}`, "
+                f"expected one of {BOOL_FORMATS}"
+            )
+
         if pretty_print:
             self.__setattr__("pretty_print", pretty_print)
         if pretty_print_indent:
