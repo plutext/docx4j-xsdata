@@ -158,6 +158,52 @@ Fail if a document value can't be correctly converted to python.
 
 **Default:** `False`
 
+### `skipped_report`
+
+**docx4j fork option.** Collect the elements and attributes a lenient parse drops,
+instead of dropping them silently, and log a warning for each through the
+`docx4j_xsdata` logger.
+
+The report lives on the config and is reachable through the parser as
+`parser.skipped`, a
+[SkippedReport][docx4j_xsdata.formats.dataclass.parsers.skipped.SkippedReport] of
+[SkippedNode][docx4j_xsdata.formats.dataclass.parsers.skipped.SkippedNode] entries. It
+is cleared at the start of every parse, so a parser and a config are one document at a
+time.
+
+```python
+>>> from dataclasses import dataclass, field
+>>> from docx4j_xsdata.formats.dataclass.parsers import XmlParser
+>>> from docx4j_xsdata.formats.dataclass.parsers.config import ParserConfig
+...
+>>> @dataclass
+... class Root:
+...     class Meta:
+...         name = "root"
+...
+>>> config = ParserConfig(
+...     fail_on_unknown_properties=False,
+...     fail_on_unknown_attributes=False,
+...     skipped_report=True,
+... )
+>>> parser = XmlParser(config=config)
+>>> obj = parser.from_string('<root a="1"><b/></root>', Root)
+>>> for skipped in parser.skipped:
+...     print(skipped.kind, skipped.path, skipped.parent_class)
+element root/b Root
+attribute root/@a Root
+
+```
+
+Only the outermost skipped element is reported; everything below it is skipped with it.
+`xsi:*` attributes are never reported, as they are never unknown. Pass a
+`SkippedReport(log=False)` instance instead of `True` to collect without logging, or to
+share one report between parsers. The JSON parser does not fill the report.
+
+**Type:** `bool | SkippedReport`
+
+**Default:** `False`
+
 ## Serializer Config
 
 API: [SerializerConfig][docx4j_xsdata.formats.dataclass.serializers.config.SerializerConfig]

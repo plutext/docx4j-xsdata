@@ -1,7 +1,8 @@
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import InitVar, dataclass, field
 from typing import Any
 
+from docx4j_xsdata.formats.dataclass.parsers.skipped import SkippedReport
 from docx4j_xsdata.formats.types import T
 
 
@@ -35,6 +36,13 @@ class ParserConfig:
         fail_on_unknown_properties: Skip unknown properties or fail with exception
         fail_on_unknown_attributes: Skip unknown XML attributes or fail with exception
         fail_on_converter_warnings: Turn converter warnings to exceptions
+        skipped_report: docx4j fork: collect the elements and attributes
+            lenient parsing drops. True for a new report, or a
+            `SkippedReport` instance to configure it or to share it.
+
+    Attributes:
+        skipped: docx4j fork: the skipped content report, or None when
+            the feature is off. Also reachable as `parser.skipped`.
     """
 
     base_url: str | None = None
@@ -46,3 +54,14 @@ class ParserConfig:
     fail_on_unknown_properties: bool = True
     fail_on_unknown_attributes: bool = False
     fail_on_converter_warnings: bool = False
+    skipped_report: InitVar[bool | SkippedReport] = False
+    skipped: SkippedReport | None = field(
+        init=False, default=None, compare=False, repr=False
+    )
+
+    def __post_init__(self, skipped_report: bool | SkippedReport) -> None:
+        """Set up the skipped content report, if it's requested."""
+        if skipped_report is True:
+            self.skipped = SkippedReport()
+        elif isinstance(skipped_report, SkippedReport):
+            self.skipped = skipped_report

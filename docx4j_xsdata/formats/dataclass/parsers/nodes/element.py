@@ -175,14 +175,14 @@ class ElementNode(XmlNode):
                 var = self.meta.find_any_attributes(qname)
                 if var:
                     self.bind_any_attr(params, var, qname, value)
-                else:
-                    if (
-                        self.config.fail_on_unknown_attributes
-                        and target_uri(qname) != Namespace.XSI.uri
-                    ):
+                elif target_uri(qname) != Namespace.XSI.uri:
+                    if self.config.fail_on_unknown_attributes:
                         raise ParserError(
                             f"Unknown attribute {self.meta.qname}:{qname}"
                         )
+
+                    if self.config.skipped is not None:
+                        self.config.skipped.add_attribute(qname, self.meta)
 
     def bind_attr(self, params: dict, var: XmlVar, value: Any) -> None:
         """Parse an element attribute.

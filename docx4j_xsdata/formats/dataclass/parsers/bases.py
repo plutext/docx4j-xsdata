@@ -53,6 +53,9 @@ class NodeParser(PushParser):
         """
         handler = self.handler(clazz=clazz, parser=self)
 
+        if self.config.skipped is not None:
+            self.config.skipped.clear()
+
         try:
             ns_map = self.ns_map if ns_map is None else ns_map
             result = handler.parse(source, ns_map)
@@ -86,6 +89,7 @@ class NodeParser(PushParser):
         """
         from docx4j_xsdata.formats.dataclass.parsers.nodes import (
             ElementNode,
+            SkipNode,
             WrapperNode,
         )
 
@@ -129,6 +133,15 @@ class NodeParser(PushParser):
                 xsi_nil=xsi_nil,
             )
 
+        report = self.config.skipped
+        if report is not None:
+            parent = queue[-1] if queue else None
+            report.start_element(
+                qname,
+                isinstance(child, SkipNode),
+                parent if isinstance(parent, ElementNode) else None,
+            )
+
         queue.append(child)
 
     def end(
@@ -152,7 +165,12 @@ class NodeParser(PushParser):
             Whether the binding process was successful.
         """
         item = queue.pop()
-        return item.bind(qname, text, tail, objects)
+        result = item.bind(qname, text, tail, objects)
+
+        if self.config.skipped is not None:
+            self.config.skipped.end_element()
+
+        return result
 
     def find_root_clazz(
         self,

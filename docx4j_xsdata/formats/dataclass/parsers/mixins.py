@@ -8,6 +8,7 @@ from typing import Any
 
 from docx4j_xsdata.exceptions import XmlHandlerError
 from docx4j_xsdata.formats.dataclass.parsers.config import ParserConfig
+from docx4j_xsdata.formats.dataclass.parsers.skipped import SkippedReport
 from docx4j_xsdata.formats.types import T
 from docx4j_xsdata.models.enums import EventType
 
@@ -25,6 +26,15 @@ class PushParser:
 
     config: ParserConfig = field(default_factory=ParserConfig)
     ns_map: dict[str | None, str] = field(init=False, default_factory=dict)
+
+    @property
+    def skipped(self) -> SkippedReport | None:
+        """docx4j fork: the skipped content report of the last parse.
+
+        None unless the config asked for it with
+        `ParserConfig(skipped_report=True)`.
+        """
+        return self.config.skipped
 
     def from_path(
         self,
