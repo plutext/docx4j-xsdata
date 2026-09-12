@@ -1,14 +1,14 @@
 import warnings
 from unittest import mock
 
+from docx4j_xsdata.exceptions import ParserError
+from docx4j_xsdata.formats.converter import ConverterFactory
+from docx4j_xsdata.formats.dataclass.context import XmlContext
+from docx4j_xsdata.formats.dataclass.parsers.config import ParserConfig
+from docx4j_xsdata.formats.dataclass.parsers.utils import ParserUtils
+from docx4j_xsdata.models.enums import Namespace, ProcessType, QNames
+from docx4j_xsdata.utils.testing import FactoryTestCase, XmlMetaFactory, XmlVarFactory
 from tests.fixtures.models import TypeA
-from xsdata.exceptions import ParserError
-from xsdata.formats.converter import ConverterFactory
-from xsdata.formats.dataclass.context import XmlContext
-from xsdata.formats.dataclass.parsers.config import ParserConfig
-from xsdata.formats.dataclass.parsers.utils import ParserUtils
-from xsdata.models.enums import Namespace, ProcessType, QNames
-from xsdata.utils.testing import FactoryTestCase, XmlMetaFactory, XmlVarFactory
 
 
 class ParserUtilsTests(FactoryTestCase):

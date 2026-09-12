@@ -2,11 +2,11 @@ from collections.abc import Generator
 from typing import Any
 from unittest import mock
 
-from xsdata.codegen.mappers import DefinitionsMapper
-from xsdata.codegen.models import Attr, Class, Status
-from xsdata.formats.dataclass.models.generics import AnyElement
-from xsdata.models.enums import DataType, Namespace, Tag
-from xsdata.models.wsdl import (
+from docx4j_xsdata.codegen.mappers import DefinitionsMapper
+from docx4j_xsdata.codegen.models import Attr, Class, Status
+from docx4j_xsdata.formats.dataclass.models.generics import AnyElement
+from docx4j_xsdata.models.enums import DataType, Namespace, Tag
+from docx4j_xsdata.models.wsdl import (
     Binding,
     BindingMessage,
     BindingOperation,
@@ -19,8 +19,8 @@ from xsdata.models.wsdl import (
     Service,
     ServicePort,
 )
-from xsdata.utils.namespaces import build_qname
-from xsdata.utils.testing import AttrFactory, ClassFactory, FactoryTestCase
+from docx4j_xsdata.utils.namespaces import build_qname
+from docx4j_xsdata.utils.testing import AttrFactory, ClassFactory, FactoryTestCase
 
 
 def mock_create_inner(target: Class, name: str) -> Class:
@@ -680,7 +680,7 @@ class DefinitionsMapperTests(FactoryTestCase):
         mock_create_message_attributes.assert_called_once_with(message.parts, ns_map)
         mock_find_message.assert_called_once_with("bar")
 
-    @mock.patch("xsdata.codegen.mappers.definitions.logger.warning")
+    @mock.patch("docx4j_xsdata.codegen.mappers.definitions.logger.warning")
     def test_build_parts_attributes(self, mock_warning) -> None:
         p_one = Part(element="a:bar")
         p_one.ns_map["a"] = "great"

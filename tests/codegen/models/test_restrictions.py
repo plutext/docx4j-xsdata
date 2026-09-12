@@ -1,7 +1,7 @@
 import sys
 from unittest import TestCase
 
-from xsdata.codegen.models import Restrictions
+from docx4j_xsdata.codegen.models import Restrictions
 
 
 class RestrictionsTests(TestCase):

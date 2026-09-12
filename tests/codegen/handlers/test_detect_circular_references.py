@@ -1,8 +1,10 @@
-from xsdata.codegen.container import ClassContainer
-from xsdata.codegen.handlers.detect_circular_references import DetectCircularReferences
-from xsdata.models.config import GeneratorConfig
-from xsdata.models.enums import DataType
-from xsdata.utils.testing import (
+from docx4j_xsdata.codegen.container import ClassContainer
+from docx4j_xsdata.codegen.handlers.detect_circular_references import (
+    DetectCircularReferences,
+)
+from docx4j_xsdata.models.config import GeneratorConfig
+from docx4j_xsdata.models.enums import DataType
+from docx4j_xsdata.utils.testing import (
     AttrFactory,
     AttrTypeFactory,
     ClassFactory,

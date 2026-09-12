@@ -1,10 +1,10 @@
 from unittest import mock
 
-from xsdata.codegen.container import ClassContainer
-from xsdata.codegen.handlers import FilterClasses
-from xsdata.models.config import GeneratorConfig
-from xsdata.models.enums import Tag
-from xsdata.utils.testing import ClassFactory, FactoryTestCase
+from docx4j_xsdata.codegen.container import ClassContainer
+from docx4j_xsdata.codegen.handlers import FilterClasses
+from docx4j_xsdata.models.config import GeneratorConfig
+from docx4j_xsdata.models.enums import Tag
+from docx4j_xsdata.utils.testing import ClassFactory, FactoryTestCase
 
 
 class FilterClassesTests(FactoryTestCase):
@@ -32,7 +32,7 @@ class FilterClassesTests(FactoryTestCase):
         self.handler.run()
         self.assertEqual(expected, list(self.container))
 
-    @mock.patch("xsdata.codegen.handlers.filter_classes.logger.warning")
+    @mock.patch("docx4j_xsdata.codegen.handlers.filter_classes.logger.warning")
     def test_run_with_no_global_types(self, mock_warning) -> None:
         classes = [ClassFactory.enumeration(2), ClassFactory.simple_type()]
         self.container.extend(classes)

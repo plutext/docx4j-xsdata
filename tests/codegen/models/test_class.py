@@ -1,9 +1,9 @@
 import sys
 
-from xsdata.codegen.exceptions import CodegenError
-from xsdata.models.enums import DataType, Namespace, Tag
-from xsdata.utils.namespaces import build_qname
-from xsdata.utils.testing import (
+from docx4j_xsdata.codegen.exceptions import CodegenError
+from docx4j_xsdata.models.enums import DataType, Namespace, Tag
+from docx4j_xsdata.utils.namespaces import build_qname
+from docx4j_xsdata.utils.testing import (
     AttrFactory,
     AttrTypeFactory,
     ClassFactory,

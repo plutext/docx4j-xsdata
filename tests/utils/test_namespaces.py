@@ -1,7 +1,7 @@
 from unittest import TestCase
 
-from xsdata.models.enums import Namespace
-from xsdata.utils.namespaces import (
+from docx4j_xsdata.models.enums import Namespace
+from docx4j_xsdata.utils.namespaces import (
     build_qname,
     clean_prefixes,
     clean_uri,

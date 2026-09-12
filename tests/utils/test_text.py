@@ -1,7 +1,7 @@
 import string
 from unittest import TestCase
 
-from xsdata.utils.text import (
+from docx4j_xsdata.utils.text import (
     CharType,
     alnum,
     camel_case,

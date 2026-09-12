@@ -1,9 +1,9 @@
 # JSON Parsing
 
 ```python
->>> from xsdata.formats.dataclass.context import XmlContext
->>> from xsdata.formats.dataclass.parsers import JsonParser
->>> from xsdata.formats.dataclass.parsers.config import ParserConfig
+>>> from docx4j_xsdata.formats.dataclass.context import XmlContext
+>>> from docx4j_xsdata.formats.dataclass.parsers import JsonParser
+>>> from docx4j_xsdata.formats.dataclass.parsers.config import ParserConfig
 
 >>> config = ParserConfig()
 >>> context = XmlContext()

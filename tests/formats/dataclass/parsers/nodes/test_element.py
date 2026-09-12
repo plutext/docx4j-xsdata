@@ -2,6 +2,22 @@ import copy
 from dataclasses import make_dataclass
 from unittest import mock
 
+from docx4j_xsdata.exceptions import ParserError
+from docx4j_xsdata.formats.dataclass.context import XmlContext
+from docx4j_xsdata.formats.dataclass.models.elements import XmlType
+from docx4j_xsdata.formats.dataclass.models.generics import AnyElement, DerivedElement
+from docx4j_xsdata.formats.dataclass.parsers.config import ParserConfig
+from docx4j_xsdata.formats.dataclass.parsers.nodes import (
+    ElementNode,
+    PrimitiveNode,
+    SkipNode,
+    StandardNode,
+    UnionNode,
+    WildcardNode,
+)
+from docx4j_xsdata.formats.dataclass.parsers.utils import ParserUtils
+from docx4j_xsdata.models.enums import DataType, Namespace, QNames
+from docx4j_xsdata.utils.testing import FactoryTestCase, XmlMetaFactory, XmlVarFactory
 from tests.fixtures.books import Books
 from tests.fixtures.models import (
     AttrsType,
@@ -16,22 +32,6 @@ from tests.fixtures.models import (
     TypeB,
     TypeC,
 )
-from xsdata.exceptions import ParserError
-from xsdata.formats.dataclass.context import XmlContext
-from xsdata.formats.dataclass.models.elements import XmlType
-from xsdata.formats.dataclass.models.generics import AnyElement, DerivedElement
-from xsdata.formats.dataclass.parsers.config import ParserConfig
-from xsdata.formats.dataclass.parsers.nodes import (
-    ElementNode,
-    PrimitiveNode,
-    SkipNode,
-    StandardNode,
-    UnionNode,
-    WildcardNode,
-)
-from xsdata.formats.dataclass.parsers.utils import ParserUtils
-from xsdata.models.enums import DataType, Namespace, QNames
-from xsdata.utils.testing import FactoryTestCase, XmlMetaFactory, XmlVarFactory
 
 
 class ElementNodeTests(FactoryTestCase):
@@ -228,7 +228,7 @@ class ElementNodeTests(FactoryTestCase):
         self.node.bind("foo", "text", "tail", objects)
         self.assertEqual(1, len(objects))
 
-    @mock.patch("xsdata.formats.dataclass.parsers.nodes.element.logger.warning")
+    @mock.patch("docx4j_xsdata.formats.dataclass.parsers.nodes.element.logger.warning")
     def test_bind_objects(self, mock_warning) -> None:
         self.node.meta = self.context.build(TypeC)
 

@@ -1,12 +1,12 @@
 from unittest import mock
 
+from docx4j_xsdata.formats.dataclass.models.elements import XmlType
+from docx4j_xsdata.formats.dataclass.parsers.nodes import PrimitiveNode, SkipNode
+from docx4j_xsdata.formats.dataclass.parsers.xml import UserXmlParser
+from docx4j_xsdata.models.enums import EventType
+from docx4j_xsdata.utils.testing import FactoryTestCase, XmlMetaFactory, XmlVarFactory
 from tests.fixtures.artists import Artist
 from tests.fixtures.books import Books
-from xsdata.formats.dataclass.models.elements import XmlType
-from xsdata.formats.dataclass.parsers.nodes import PrimitiveNode, SkipNode
-from xsdata.formats.dataclass.parsers.xml import UserXmlParser
-from xsdata.models.enums import EventType
-from xsdata.utils.testing import FactoryTestCase, XmlMetaFactory, XmlVarFactory
 
 
 class UserXmlParserTests(FactoryTestCase):

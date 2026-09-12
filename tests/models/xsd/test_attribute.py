@@ -1,8 +1,8 @@
 from unittest import TestCase
 
-from xsdata.codegen.exceptions import CodegenError
-from xsdata.models.enums import Namespace, UseType
-from xsdata.models.xsd import Attribute, Length, Restriction, SimpleType
+from docx4j_xsdata.codegen.exceptions import CodegenError
+from docx4j_xsdata.models.enums import Namespace, UseType
+from docx4j_xsdata.models.xsd import Attribute, Length, Restriction, SimpleType
 
 
 class AttributeTests(TestCase):

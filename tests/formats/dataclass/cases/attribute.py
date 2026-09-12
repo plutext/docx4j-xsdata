@@ -1,7 +1,7 @@
 from collections.abc import Iterable, Sequence
 from typing import Dict, List, Literal, Optional, Set, Tuple, Union
 
-from xsdata.models.enums import Mode
+from docx4j_xsdata.models.enums import Mode
 
 tokens = [
     (int, False),

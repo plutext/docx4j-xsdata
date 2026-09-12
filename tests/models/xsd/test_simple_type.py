@@ -1,6 +1,13 @@
 from unittest import TestCase
 
-from xsdata.models.xsd import Enumeration, Length, List, Restriction, SimpleType, Union
+from docx4j_xsdata.models.xsd import (
+    Enumeration,
+    Length,
+    List,
+    Restriction,
+    SimpleType,
+    Union,
+)
 
 
 class SimpleTypeTests(TestCase):

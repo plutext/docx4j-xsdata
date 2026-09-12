@@ -1,8 +1,8 @@
 from unittest import TestCase
 
+from docx4j_xsdata.formats.dataclass.models.generics import AnyElement
+from docx4j_xsdata.formats.dataclass.parsers.tree import TreeParser
 from tests import fixtures_dir
-from xsdata.formats.dataclass.models.generics import AnyElement
-from xsdata.formats.dataclass.parsers.tree import TreeParser
 
 
 class TreeParserTests(TestCase):

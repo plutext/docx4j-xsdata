@@ -1,7 +1,7 @@
 from unittest import TestCase
 
-from xsdata.models.enums import Namespace, NamespaceType
-from xsdata.models.xsd import AnyAttribute
+from docx4j_xsdata.models.enums import Namespace, NamespaceType
+from docx4j_xsdata.models.xsd import AnyAttribute
 
 
 class AnyAttributeTests(TestCase):

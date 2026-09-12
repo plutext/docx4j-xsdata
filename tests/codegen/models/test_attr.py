@@ -1,8 +1,8 @@
 import sys
 
-from xsdata.codegen.models import Restrictions
-from xsdata.models.enums import DataType, Namespace, Tag
-from xsdata.utils.testing import AttrFactory, AttrTypeFactory, FactoryTestCase
+from docx4j_xsdata.codegen.models import Restrictions
+from docx4j_xsdata.models.enums import DataType, Namespace, Tag
+from docx4j_xsdata.utils.testing import AttrFactory, AttrTypeFactory, FactoryTestCase
 
 
 class AttrTests(FactoryTestCase):

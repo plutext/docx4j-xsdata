@@ -1,14 +1,14 @@
-from xsdata.codegen.container import ClassContainer
-from xsdata.codegen.exceptions import CodegenError
-from xsdata.codegen.handlers import DesignateClassPackages
-from xsdata.models.config import (
+from docx4j_xsdata.codegen.container import ClassContainer
+from docx4j_xsdata.codegen.exceptions import CodegenError
+from docx4j_xsdata.codegen.handlers import DesignateClassPackages
+from docx4j_xsdata.models.config import (
     GeneratorConfig,
     GeneratorSubstitution,
     ObjectType,
     StructureStyle,
 )
-from xsdata.models.enums import Namespace
-from xsdata.utils.testing import AttrFactory, ClassFactory, FactoryTestCase
+from docx4j_xsdata.models.enums import Namespace
+from docx4j_xsdata.utils.testing import AttrFactory, ClassFactory, FactoryTestCase
 
 
 class DesignateClassPackagesTests(FactoryTestCase):

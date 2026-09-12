@@ -1,10 +1,10 @@
-from xsdata.codegen.container import ClassContainer
-from xsdata.codegen.exceptions import CodegenError
-from xsdata.codegen.handlers import ValidateReferences
-from xsdata.models.config import (
+from docx4j_xsdata.codegen.container import ClassContainer
+from docx4j_xsdata.codegen.exceptions import CodegenError
+from docx4j_xsdata.codegen.handlers import ValidateReferences
+from docx4j_xsdata.models.config import (
     GeneratorConfig,
 )
-from xsdata.utils.testing import (
+from docx4j_xsdata.utils.testing import (
     AttrFactory,
     AttrTypeFactory,
     ClassFactory,

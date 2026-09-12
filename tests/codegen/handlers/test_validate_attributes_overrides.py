@@ -1,12 +1,12 @@
 import sys
 from unittest import mock
 
-from xsdata.codegen.container import ClassContainer
-from xsdata.codegen.handlers import ValidateAttributesOverrides
-from xsdata.codegen.models import Status
-from xsdata.models.config import GeneratorConfig
-from xsdata.models.enums import DataType, Tag
-from xsdata.utils.testing import (
+from docx4j_xsdata.codegen.container import ClassContainer
+from docx4j_xsdata.codegen.handlers import ValidateAttributesOverrides
+from docx4j_xsdata.codegen.models import Status
+from docx4j_xsdata.models.config import GeneratorConfig
+from docx4j_xsdata.models.enums import DataType, Tag
+from docx4j_xsdata.utils.testing import (
     AttrFactory,
     ClassFactory,
     ExtensionFactory,

@@ -1,15 +1,15 @@
 from dataclasses import field, make_dataclass
 from unittest import TestCase
 
+from docx4j_xsdata.exceptions import ParserError
+from docx4j_xsdata.formats.dataclass.context import XmlContext
+from docx4j_xsdata.formats.dataclass.models.elements import XmlType
+from docx4j_xsdata.formats.dataclass.parsers.config import ParserConfig
+from docx4j_xsdata.formats.dataclass.parsers.nodes import UnionNode
+from docx4j_xsdata.models.mixins import attribute
+from docx4j_xsdata.utils.testing import XmlMetaFactory, XmlVarFactory
 from tests.fixtures.artists import Artist
 from tests.fixtures.models import UnionType
-from xsdata.exceptions import ParserError
-from xsdata.formats.dataclass.context import XmlContext
-from xsdata.formats.dataclass.models.elements import XmlType
-from xsdata.formats.dataclass.parsers.config import ParserConfig
-from xsdata.formats.dataclass.parsers.nodes import UnionNode
-from xsdata.models.mixins import attribute
-from xsdata.utils.testing import XmlMetaFactory, XmlVarFactory
 
 
 class UnionNodeTests(TestCase):

@@ -1,8 +1,8 @@
 from unittest import mock
 
-from xsdata.codegen.handlers import RenameDuplicateAttributes
-from xsdata.codegen.utils import ClassUtils
-from xsdata.utils.testing import ClassFactory, FactoryTestCase
+from docx4j_xsdata.codegen.handlers import RenameDuplicateAttributes
+from docx4j_xsdata.codegen.utils import ClassUtils
+from docx4j_xsdata.utils.testing import ClassFactory, FactoryTestCase
 
 
 class RenameDuplicateAttributesTests(FactoryTestCase):

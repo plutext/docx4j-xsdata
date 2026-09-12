@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from xsdata.models.xsd import Enumeration
+from docx4j_xsdata.models.xsd import Enumeration
 
 
 class EnumerationTests(TestCase):

@@ -1,8 +1,8 @@
-from xsdata.codegen.container import ClassContainer, Steps
-from xsdata.codegen.handlers import ResetAttributeSequenceNumbers
-from xsdata.codegen.models import Restrictions, Status
-from xsdata.models.config import GeneratorConfig
-from xsdata.utils.testing import (
+from docx4j_xsdata.codegen.container import ClassContainer, Steps
+from docx4j_xsdata.codegen.handlers import ResetAttributeSequenceNumbers
+from docx4j_xsdata.codegen.models import Restrictions, Status
+from docx4j_xsdata.models.config import GeneratorConfig
+from docx4j_xsdata.utils.testing import (
     AttrFactory,
     ClassFactory,
     ExtensionFactory,

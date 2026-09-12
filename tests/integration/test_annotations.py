@@ -3,11 +3,11 @@ import os
 import pytest
 from click.testing import CliRunner
 
+from docx4j_xsdata.cli import cli
+from docx4j_xsdata.formats.dataclass.context import XmlContext
+from docx4j_xsdata.formats.dataclass.parsers.xml import XmlParser
+from docx4j_xsdata.utils.testing import load_class
 from tests import fixtures_dir, root
-from xsdata.cli import cli
-from xsdata.formats.dataclass.context import XmlContext
-from xsdata.formats.dataclass.parsers.xml import XmlParser
-from xsdata.utils.testing import load_class
 
 os.chdir(root)
 

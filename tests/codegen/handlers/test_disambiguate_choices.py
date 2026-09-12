@@ -1,11 +1,11 @@
 from dataclasses import replace
 
-from xsdata.codegen.container import ClassContainer
-from xsdata.codegen.handlers import DisambiguateChoices
-from xsdata.codegen.models import Restrictions, Status
-from xsdata.models.config import GeneratorConfig
-from xsdata.models.enums import DataType, Tag
-from xsdata.utils.testing import (
+from docx4j_xsdata.codegen.container import ClassContainer
+from docx4j_xsdata.codegen.handlers import DisambiguateChoices
+from docx4j_xsdata.codegen.models import Restrictions, Status
+from docx4j_xsdata.models.config import GeneratorConfig
+from docx4j_xsdata.models.enums import DataType, Tag
+from docx4j_xsdata.utils.testing import (
     AttrFactory,
     AttrTypeFactory,
     ClassFactory,

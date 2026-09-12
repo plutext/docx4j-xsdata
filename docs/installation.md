@@ -3,7 +3,7 @@
 ## Using pip
 
 ```console
-pip install xsdata[cli,lxml,soap]
+pip install docx4j-xsdata[cli,lxml,soap]
 ```
 
 !!! hint
@@ -15,13 +15,7 @@ pip install xsdata[cli,lxml,soap]
 ## From repository
 
 ```console
-pip install xsdata[cli,lxml] @ git+https://github.com/tefra/xsdata
-```
-
-## Using conda
-
-```console
-conda install -c conda-forge xsdata
+pip install docx4j-xsdata[cli,lxml] @ git+https://github.com/plutext/docx4j-xsdata
 ```
 
 ## Verify installation
@@ -29,7 +23,7 @@ conda install -c conda-forge xsdata
 Verify installation using the cli entry point.
 
 ```console exec="1" source="console"
-$ xsdata --help
+$ docx4j-xsdata --help
 ```
 
 ## Requirements

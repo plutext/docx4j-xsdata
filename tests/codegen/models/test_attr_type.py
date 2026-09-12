@@ -1,4 +1,4 @@
-from xsdata.utils.testing import AttrTypeFactory, FactoryTestCase
+from docx4j_xsdata.utils.testing import AttrTypeFactory, FactoryTestCase
 
 
 class AttrTypeTests(FactoryTestCase):

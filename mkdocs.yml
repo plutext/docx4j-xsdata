@@ -1,10 +1,10 @@
-site_name: "xsdata"
+site_name: "docx4j-xsdata"
 site_url: https://xsdata.readthedocs.io/
 site_description: >-
   xsData is a complete data binding library for python allowing developers to
   access and use XML and JSON documents as simple objects rather than using DOM.
-repo_name: tefra/xsdata
-repo_url: https://github.com/tefra/xsdata
+repo_name: plutext/docx4j-xsdata
+repo_url: https://github.com/plutext/docx4j-xsdata
 edit_uri: edit/main/docs/
 exclude_docs: |
   scripts/
@@ -44,7 +44,7 @@ theme:
   favicon: 'favicon.png'
 
 watch:
-  - xsdata
+  - docx4j_xsdata
 
 plugins:
 - search

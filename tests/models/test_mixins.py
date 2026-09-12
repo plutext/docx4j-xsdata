@@ -1,10 +1,10 @@
 from collections.abc import Generator, Iterator
 from unittest import TestCase
 
-from xsdata.codegen.exceptions import CodegenError
-from xsdata.models.enums import FormType, Namespace
-from xsdata.models.mixins import ElementBase
-from xsdata.models.xsd import Alternative, ComplexType, Element, SimpleType
+from docx4j_xsdata.codegen.exceptions import CodegenError
+from docx4j_xsdata.models.enums import FormType, Namespace
+from docx4j_xsdata.models.mixins import ElementBase
+from docx4j_xsdata.models.xsd import Alternative, ComplexType, Element, SimpleType
 
 
 class ElementBaseTests(TestCase):

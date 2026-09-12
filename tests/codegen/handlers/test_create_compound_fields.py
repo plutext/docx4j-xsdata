@@ -1,11 +1,11 @@
 from unittest import mock
 
-from xsdata.codegen.container import ClassContainer
-from xsdata.codegen.handlers import CreateCompoundFields
-from xsdata.codegen.models import Restrictions
-from xsdata.models.config import GeneratorConfig
-from xsdata.models.enums import Tag
-from xsdata.utils.testing import (
+from docx4j_xsdata.codegen.container import ClassContainer
+from docx4j_xsdata.codegen.handlers import CreateCompoundFields
+from docx4j_xsdata.codegen.models import Restrictions
+from docx4j_xsdata.models.config import GeneratorConfig
+from docx4j_xsdata.models.enums import Tag
+from docx4j_xsdata.utils.testing import (
     AttrFactory,
     ClassFactory,
     ExtensionFactory,

@@ -3,13 +3,13 @@ from unittest import TestCase
 
 import lxml
 
-from tests import fixtures_dir
-from tests.fixtures.books.fixtures import books
-from xsdata.formats.dataclass.serializers import TreeSerializer, XmlSerializer
-from xsdata.formats.dataclass.serializers.config import SerializerConfig
-from xsdata.formats.dataclass.serializers.writers import (
+from docx4j_xsdata.formats.dataclass.serializers import TreeSerializer, XmlSerializer
+from docx4j_xsdata.formats.dataclass.serializers.config import SerializerConfig
+from docx4j_xsdata.formats.dataclass.serializers.writers import (
     LxmlEventWriter,
 )
+from tests import fixtures_dir
+from tests.fixtures.books.fixtures import books
 
 
 class LxmlEventWriterTests(TestCase):

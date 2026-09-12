@@ -1,6 +1,6 @@
-from xsdata.codegen.handlers import UpdateAttributesEffectiveChoice
-from xsdata.codegen.models import Restrictions
-from xsdata.utils.testing import AttrFactory, ClassFactory, FactoryTestCase
+from docx4j_xsdata.codegen.handlers import UpdateAttributesEffectiveChoice
+from docx4j_xsdata.codegen.models import Restrictions
+from docx4j_xsdata.utils.testing import AttrFactory, ClassFactory, FactoryTestCase
 
 
 class UpdateAttributesEffectiveChoiceTests(FactoryTestCase):

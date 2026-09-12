@@ -1,9 +1,9 @@
 # XML Serializing
 
 ```python
->>> from xsdata.formats.dataclass.context import XmlContext
->>> from xsdata.formats.dataclass.serializers import XmlSerializer
->>> from xsdata.formats.dataclass.serializers.config import SerializerConfig
+>>> from docx4j_xsdata.formats.dataclass.context import XmlContext
+>>> from docx4j_xsdata.formats.dataclass.serializers import XmlSerializer
+>>> from docx4j_xsdata.formats.dataclass.serializers.config import SerializerConfig
 
 >>> config = SerializerConfig(indent="  ")
 >>> context = XmlContext()
@@ -114,7 +114,7 @@ default behaviour is to write them explicitly during serialization, but you can 
 them through config.
 
 ```python
->>> from xsdata.formats.dataclass.serializers.config import SerializerConfig
+>>> from docx4j_xsdata.formats.dataclass.serializers.config import SerializerConfig
 ...
 >>> serializer = XmlSerializer(config=SerializerConfig(
 ...     indent="  ",
@@ -146,13 +146,13 @@ mixed content and enabled indentation.
 !!! Hint
 
     If you installed xsdata with lxml the default writer is set to
-    [`LxmlEventWriter`][xsdata.formats.dataclass.serializers.writers.LxmlEventWriter] otherwise
-    [`XmlEventWriter`][xsdata.formats.dataclass.serializers.writers.XmlEventWriter] will be used.
+    [`LxmlEventWriter`][docx4j_xsdata.formats.dataclass.serializers.writers.LxmlEventWriter] otherwise
+    [`XmlEventWriter`][docx4j_xsdata.formats.dataclass.serializers.writers.XmlEventWriter] will be used.
 
 ```python
 
->>> from xsdata.formats.dataclass.serializers.writers import XmlEventWriter
->>> from xsdata.formats.dataclass.serializers.writers import LxmlEventWriter
+>>> from docx4j_xsdata.formats.dataclass.serializers.writers import XmlEventWriter
+>>> from docx4j_xsdata.formats.dataclass.serializers.writers import LxmlEventWriter
 ...
 >>> serializer = XmlSerializer(config=config, writer=XmlEventWriter)
 >>> serializer = XmlSerializer(config=config, writer=LxmlEventWriter)
@@ -204,14 +204,14 @@ The generator will roughly create this class for you.
 xsdata comes with two generic models that are used during parsing and you can also use
 to generate any custom xml element.
 
-- [`AnyElement`][xsdata.formats.dataclass.models.generics.AnyElement]: Used to represent
+- [`AnyElement`][docx4j_xsdata.formats.dataclass.models.generics.AnyElement]: Used to represent
   any xml structure, resembles a DOM Element
-- [`DerivedElement`][xsdata.formats.dataclass.models.generics.DerivedElement]: Wrapper
+- [`DerivedElement`][docx4j_xsdata.formats.dataclass.models.generics.DerivedElement]: Wrapper
   for type substitution elements eg `<b xsi:type="a">...</b>`
 
 ```python
->>> from xsdata.formats.dataclass.models.generics import AnyElement
->>> from xsdata.formats.dataclass.models.generics import DerivedElement
+>>> from docx4j_xsdata.formats.dataclass.models.generics import AnyElement
+>>> from docx4j_xsdata.formats.dataclass.models.generics import DerivedElement
 ...
 >>> obj = MetadataType(
 ...     any_element=[

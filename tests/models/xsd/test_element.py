@@ -1,9 +1,9 @@
 import sys
 from unittest import TestCase
 
-from xsdata.codegen.exceptions import CodegenError
-from xsdata.models.enums import Namespace
-from xsdata.models.xsd import (
+from docx4j_xsdata.codegen.exceptions import CodegenError
+from docx4j_xsdata.models.enums import Namespace
+from docx4j_xsdata.models.xsd import (
     Alternative,
     ComplexType,
     Element,

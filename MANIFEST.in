@@ -1,7 +1,7 @@
 include LICENSE README.md LICENSE CHANGES.md
 recursive-include docs *
 recursive-include tests *
-recursive-include xsdata *
+recursive-include docx4j_xsdata *
 
 
 exclude .readthedocs.yml

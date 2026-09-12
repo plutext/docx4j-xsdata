@@ -7,16 +7,16 @@ from unittest import TestCase, mock
 
 from click.testing import CliRunner
 
+from docx4j_xsdata import __version__
+from docx4j_xsdata.cli import cli, resolve_source
+from docx4j_xsdata.codegen.exceptions import CodegenError
+from docx4j_xsdata.codegen.transformer import ResourceTransformer
+from docx4j_xsdata.codegen.writer import CodeWriter
+from docx4j_xsdata.formats.dataclass.generator import DataclassGenerator
+from docx4j_xsdata.logger import logger
+from docx4j_xsdata.models.config import GeneratorConfig, StructureStyle
+from docx4j_xsdata.utils.downloader import Downloader
 from tests import fixtures_dir
-from xsdata import __version__
-from xsdata.cli import cli, resolve_source
-from xsdata.codegen.exceptions import CodegenError
-from xsdata.codegen.transformer import ResourceTransformer
-from xsdata.codegen.writer import CodeWriter
-from xsdata.formats.dataclass.generator import DataclassGenerator
-from xsdata.logger import logger
-from xsdata.models.config import GeneratorConfig, StructureStyle
-from xsdata.utils.downloader import Downloader
 
 CodeWriter.register_generator("testing", DataclassGenerator)
 
@@ -90,7 +90,7 @@ class CliTests(TestCase):
         self.runner.invoke(cli, ["generate", "foo.xsd", "--package", "foo", "--debug"])
         self.assertEqual(logging.DEBUG, logger.level)
 
-    @mock.patch("xsdata.cli.logger.info")
+    @mock.patch("docx4j_xsdata.cli.logger.info")
     def test_init_config(self, mock_info) -> None:
         output = tempfile.mktemp()
         output_path = Path(output)
@@ -101,7 +101,7 @@ class CliTests(TestCase):
         mock_info.assert_has_calls(
             [
                 mock.call(
-                    "========= xsdata v%s / Python %s / Platform %s =========\n",
+                    "========= docx4j-xsdata v%s / Python %s / Platform %s =========\n",
                     __version__,
                     platform.python_version(),
                     sys.platform,
@@ -111,7 +111,7 @@ class CliTests(TestCase):
         )
         output_path.unlink()
 
-    @mock.patch("xsdata.cli.logger.info")
+    @mock.patch("docx4j_xsdata.cli.logger.info")
     def test_init_config_when_file_exists(self, mock_info) -> None:
         output = tempfile.mktemp()
         output_path = Path(output).resolve()
@@ -129,7 +129,7 @@ class CliTests(TestCase):
         mock_info.assert_has_calls(
             [
                 mock.call(
-                    "========= xsdata v%s / Python %s / Platform %s =========\n",
+                    "========= docx4j-xsdata v%s / Python %s / Platform %s =========\n",
                     __version__,
                     platform.python_version(),
                     sys.platform,

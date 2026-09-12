@@ -1,7 +1,7 @@
 import sys
 from unittest import TestCase
 
-from xsdata.models.xsd import Choice
+from docx4j_xsdata.models.xsd import Choice
 
 
 class ChoiceTests(TestCase):

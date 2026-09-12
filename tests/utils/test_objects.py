@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 from unittest import TestCase
 
-from xsdata.utils import objects
+from docx4j_xsdata.utils import objects
 
 
 class ObjectsTests(TestCase):

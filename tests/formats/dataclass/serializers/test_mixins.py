@@ -6,21 +6,21 @@ from xml.etree.ElementTree import QName
 from xml.sax import ContentHandler
 from xml.sax.saxutils import XMLGenerator
 
-from tests.fixtures.books import BookForm
-from tests.fixtures.datatypes import Telephone
-from tests.fixtures.models import Paragraph, SequentialType, Span, TypeA
-from xsdata.exceptions import SerializerError, XmlContextError, XmlWriterError
-from xsdata.formats.dataclass.models.elements import XmlType
-from xsdata.formats.dataclass.models.generics import AnyElement, DerivedElement
-from xsdata.formats.dataclass.serializers import XmlSerializer
-from xsdata.formats.dataclass.serializers.config import SerializerConfig
-from xsdata.formats.dataclass.serializers.mixins import (
+from docx4j_xsdata.exceptions import SerializerError, XmlContextError, XmlWriterError
+from docx4j_xsdata.formats.dataclass.models.elements import XmlType
+from docx4j_xsdata.formats.dataclass.models.generics import AnyElement, DerivedElement
+from docx4j_xsdata.formats.dataclass.serializers import XmlSerializer
+from docx4j_xsdata.formats.dataclass.serializers.config import SerializerConfig
+from docx4j_xsdata.formats.dataclass.serializers.mixins import (
     EventGenerator,
     XmlWriter,
 )
-from xsdata.models.datatype import XmlDate
-from xsdata.models.enums import DataType, QNames
-from xsdata.utils.testing import XmlVarFactory
+from docx4j_xsdata.models.datatype import XmlDate
+from docx4j_xsdata.models.enums import DataType, QNames
+from docx4j_xsdata.utils.testing import XmlVarFactory
+from tests.fixtures.books import BookForm
+from tests.fixtures.datatypes import Telephone
+from tests.fixtures.models import Paragraph, SequentialType, Span, TypeA
 
 # Default values for BookForm required fields
 BOOK_DEFAULTS = {

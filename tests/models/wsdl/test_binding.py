@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from xsdata.models.wsdl import Binding, BindingOperation
+from docx4j_xsdata.models.wsdl import Binding, BindingOperation
 
 
 class BindingTests(TestCase):

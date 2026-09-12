@@ -1,11 +1,11 @@
 import json
 from unittest.case import TestCase
 
+from docx4j_xsdata.formats.dataclass.serializers import DictFactory
+from docx4j_xsdata.formats.dataclass.serializers.config import SerializerConfig
+from docx4j_xsdata.formats.dataclass.serializers.json import JsonSerializer
+from docx4j_xsdata.models.datatype import XmlDate
 from tests.fixtures.books import BookForm, Books
-from xsdata.formats.dataclass.serializers import DictFactory
-from xsdata.formats.dataclass.serializers.config import SerializerConfig
-from xsdata.formats.dataclass.serializers.json import JsonSerializer
-from xsdata.models.datatype import XmlDate
 
 
 class JsonSerializerTests(TestCase):

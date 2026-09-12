@@ -1,12 +1,12 @@
 from unittest import TestCase
 
+from docx4j_xsdata.exceptions import XmlContextError
+from docx4j_xsdata.formats.dataclass.models.generics import DerivedElement
+from docx4j_xsdata.formats.dataclass.parsers.config import ParserConfig
+from docx4j_xsdata.formats.dataclass.parsers.nodes import StandardNode
+from docx4j_xsdata.models.enums import DataType
+from docx4j_xsdata.utils.testing import XmlMetaFactory, XmlVarFactory
 from tests.fixtures.artists import Artist
-from xsdata.exceptions import XmlContextError
-from xsdata.formats.dataclass.models.generics import DerivedElement
-from xsdata.formats.dataclass.parsers.config import ParserConfig
-from xsdata.formats.dataclass.parsers.nodes import StandardNode
-from xsdata.models.enums import DataType
-from xsdata.utils.testing import XmlMetaFactory, XmlVarFactory
 
 
 class StandardNodeTests(TestCase):

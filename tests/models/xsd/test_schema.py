@@ -1,8 +1,8 @@
 from collections.abc import Iterator
 from unittest import TestCase
 
-from xsdata.models.enums import Namespace
-from xsdata.models.xsd import Import, Include, Override, Redefine, Schema
+from docx4j_xsdata.models.enums import Namespace
+from docx4j_xsdata.models.xsd import Import, Include, Override, Redefine, Schema
 
 
 class SchemaTests(TestCase):

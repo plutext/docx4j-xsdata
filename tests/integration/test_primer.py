@@ -2,10 +2,10 @@ import os
 
 from click.testing import CliRunner
 
+from docx4j_xsdata.cli import cli
+from docx4j_xsdata.utils.testing import load_class
 from tests import fixtures_dir, root
 from tests.conftest import validate_bindings
-from xsdata.cli import cli
-from xsdata.utils.testing import load_class
 
 os.chdir(root)
 

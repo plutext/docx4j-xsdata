@@ -5,14 +5,14 @@ download schemas and wsdl locally. The command will download any included schema
 recursively.
 
 ```console exec="1" source="console"
-$ xsdata download --help
+$ docx4j-xsdata download --help
 ```
 
 **Example**
 
 ```console
-❯ xsdata download https://www.w3.org/Math/XMLSchema/mathml3/mathml3.xsd -o ~/schemas
-========= xsdata v24.6.1 / Python 3.11.8 / Platform linux =========
+❯ docx4j-xsdata download https://www.w3.org/Math/XMLSchema/mathml3/mathml3.xsd -o ~/schemas
+========= docx4j-xsdata v24.6.1 / Python 3.11.8 / Platform linux =========
 
 Setting base path to https:/www.w3.org/Math/XMLSchema/mathml3
 Fetching https://www.w3.org/Math/XMLSchema/mathml3/mathml3.xsd

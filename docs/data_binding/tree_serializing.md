@@ -3,7 +3,7 @@
 The tree serializer renders an object into an lxml element tree that you can use to run
 XPath evaluations or XSLT transformations.
 
-The [TreeSerializer][xsdata.formats.dataclass.serializers.tree.TreeSerializer] depends
+The [TreeSerializer][docx4j_xsdata.formats.dataclass.serializers.tree.TreeSerializer] depends
 on lxml. There is no native Python ElementTree implementation due to limitations with
 namespaces.
 
@@ -12,7 +12,7 @@ namespaces.
 ```python
 >>> from lxml import etree
 >>> from tests.fixtures.books.fixtures import books
->>> from xsdata.formats.dataclass.serializers import TreeSerializer
+>>> from docx4j_xsdata.formats.dataclass.serializers import TreeSerializer
 ...
 >>> serializer = TreeSerializer()
 >>> serializer.config.indent = "  "

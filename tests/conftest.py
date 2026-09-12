@@ -2,14 +2,14 @@ from pathlib import Path
 
 from lxml import etree
 
-from xsdata.formats.dataclass.context import XmlContext
-from xsdata.formats.dataclass.parsers import JsonParser, XmlParser
-from xsdata.formats.dataclass.serializers import (
+from docx4j_xsdata.formats.dataclass.context import XmlContext
+from docx4j_xsdata.formats.dataclass.parsers import JsonParser, XmlParser
+from docx4j_xsdata.formats.dataclass.serializers import (
     JsonSerializer,
     PycodeSerializer,
     XmlSerializer,
 )
-from xsdata.formats.dataclass.serializers.config import SerializerConfig
+from docx4j_xsdata.formats.dataclass.serializers.config import SerializerConfig
 
 
 def validate_bindings(schema: Path, clazz: type) -> None:

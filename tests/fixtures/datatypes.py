@@ -1,8 +1,8 @@
 from collections import namedtuple
 from typing import Any
 
-from xsdata.exceptions import ConverterError
-from xsdata.formats.converter import Converter, converter
+from docx4j_xsdata.exceptions import ConverterError
+from docx4j_xsdata.formats.converter import Converter, converter
 
 Telephone = namedtuple('Telephone', ['country_code', 'area_code', 'number'])
 

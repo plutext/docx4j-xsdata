@@ -3,13 +3,13 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
-from xsdata.codegen.exceptions import CodegenError
-from xsdata.codegen.models import Class
-from xsdata.codegen.writer import CodeWriter
-from xsdata.formats.dataclass.generator import DataclassGenerator
-from xsdata.formats.mixins import AbstractGenerator, GeneratorResult
-from xsdata.models.config import GeneratorConfig
-from xsdata.utils.testing import ClassFactory, FactoryTestCase
+from docx4j_xsdata.codegen.exceptions import CodegenError
+from docx4j_xsdata.codegen.models import Class
+from docx4j_xsdata.codegen.writer import CodeWriter
+from docx4j_xsdata.formats.dataclass.generator import DataclassGenerator
+from docx4j_xsdata.formats.mixins import AbstractGenerator, GeneratorResult
+from docx4j_xsdata.models.config import GeneratorConfig
+from docx4j_xsdata.utils.testing import ClassFactory, FactoryTestCase
 
 
 class NoneGenerator(AbstractGenerator):

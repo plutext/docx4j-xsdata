@@ -1,9 +1,9 @@
 from unittest import TestCase
 
-from xsdata.formats.dataclass.models.elements import XmlType
-from xsdata.formats.dataclass.models.generics import AnyElement
-from xsdata.formats.dataclass.parsers.nodes import WildcardNode
-from xsdata.utils.testing import XmlVarFactory
+from docx4j_xsdata.formats.dataclass.models.elements import XmlType
+from docx4j_xsdata.formats.dataclass.models.generics import AnyElement
+from docx4j_xsdata.formats.dataclass.parsers.nodes import WildcardNode
+from docx4j_xsdata.utils.testing import XmlVarFactory
 
 
 class WildcardNodeTests(TestCase):

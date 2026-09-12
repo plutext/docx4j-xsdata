@@ -2,7 +2,7 @@ from unittest import TestCase, mock
 
 from requests import HTTPError, Response, Session
 
-from xsdata.formats.dataclass.transports import DefaultTransport
+from docx4j_xsdata.formats.dataclass.transports import DefaultTransport
 
 
 class DefaultTransportTest(TestCase):

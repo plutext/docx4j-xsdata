@@ -6,6 +6,18 @@ from typing import get_type_hints
 from unittest import TestCase, mock
 from xml.etree.ElementTree import QName
 
+from docx4j_xsdata.exceptions import XmlContextError
+from docx4j_xsdata.formats.dataclass.compat import class_types
+from docx4j_xsdata.formats.dataclass.models.builders import (
+    XmlMetaBuilder,
+    XmlVarBuilder,
+)
+from docx4j_xsdata.formats.dataclass.models.elements import XmlType
+from docx4j_xsdata.models.datatype import XmlDate
+from docx4j_xsdata.utils import text
+from docx4j_xsdata.utils.constants import return_input
+from docx4j_xsdata.utils.namespaces import build_qname
+from docx4j_xsdata.utils.testing import FactoryTestCase, XmlMetaFactory, XmlVarFactory
 from tests.fixtures.artists import Artist
 from tests.fixtures.books import BookForm
 from tests.fixtures.models import (
@@ -19,15 +31,6 @@ from tests.fixtures.models import (
 )
 from tests.fixtures.series import Country
 from tests.fixtures.submodels import ChoiceTypeChild
-from xsdata.exceptions import XmlContextError
-from xsdata.formats.dataclass.compat import class_types
-from xsdata.formats.dataclass.models.builders import XmlMetaBuilder, XmlVarBuilder
-from xsdata.formats.dataclass.models.elements import XmlType
-from xsdata.models.datatype import XmlDate
-from xsdata.utils import text
-from xsdata.utils.constants import return_input
-from xsdata.utils.namespaces import build_qname
-from xsdata.utils.testing import FactoryTestCase, XmlMetaFactory, XmlVarFactory
 
 
 class XmlMetaBuilderTests(FactoryTestCase):

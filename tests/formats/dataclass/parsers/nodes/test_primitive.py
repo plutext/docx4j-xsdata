@@ -1,12 +1,12 @@
 from unittest import TestCase, mock
 
+from docx4j_xsdata.exceptions import XmlContextError
+from docx4j_xsdata.formats.dataclass.models.elements import XmlType
+from docx4j_xsdata.formats.dataclass.parsers.config import ParserConfig
+from docx4j_xsdata.formats.dataclass.parsers.nodes import PrimitiveNode
+from docx4j_xsdata.formats.dataclass.parsers.utils import ParserUtils
+from docx4j_xsdata.utils.testing import XmlMetaFactory, XmlVarFactory
 from tests.fixtures.artists import Artist
-from xsdata.exceptions import XmlContextError
-from xsdata.formats.dataclass.models.elements import XmlType
-from xsdata.formats.dataclass.parsers.config import ParserConfig
-from xsdata.formats.dataclass.parsers.nodes import PrimitiveNode
-from xsdata.formats.dataclass.parsers.utils import ParserUtils
-from xsdata.utils.testing import XmlMetaFactory, XmlVarFactory
 
 
 class PrimitiveNodeTests(TestCase):

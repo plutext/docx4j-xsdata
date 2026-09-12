@@ -1,12 +1,12 @@
 import sys
 from unittest import mock
 
-from xsdata.codegen.mappers import ElementMapper
-from xsdata.codegen.models import Restrictions
-from xsdata.codegen.utils import ClassUtils
-from xsdata.formats.dataclass.models.generics import AnyElement
-from xsdata.models.enums import DataType, QNames, Tag
-from xsdata.utils.testing import (
+from docx4j_xsdata.codegen.mappers import ElementMapper
+from docx4j_xsdata.codegen.models import Restrictions
+from docx4j_xsdata.codegen.utils import ClassUtils
+from docx4j_xsdata.formats.dataclass.models.generics import AnyElement
+from docx4j_xsdata.models.enums import DataType, QNames, Tag
+from docx4j_xsdata.utils.testing import (
     AttrFactory,
     AttrTypeFactory,
     ClassFactory,

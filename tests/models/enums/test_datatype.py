@@ -2,8 +2,8 @@ from decimal import Decimal
 from unittest import TestCase
 from xml.etree.ElementTree import QName
 
-from xsdata.models.datatype import XmlDate, XmlDateTime, XmlPeriod, XmlTime
-from xsdata.models.enums import DataType
+from docx4j_xsdata.models.datatype import XmlDate, XmlDateTime, XmlPeriod, XmlTime
+from docx4j_xsdata.models.enums import DataType
 
 
 class DataTypeTests(TestCase):

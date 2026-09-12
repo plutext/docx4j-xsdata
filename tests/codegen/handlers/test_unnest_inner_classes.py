@@ -1,7 +1,7 @@
-from xsdata.codegen.container import ClassContainer
-from xsdata.codegen.handlers import UnnestInnerClasses
-from xsdata.models.config import GeneratorConfig
-from xsdata.utils.testing import (
+from docx4j_xsdata.codegen.container import ClassContainer
+from docx4j_xsdata.codegen.handlers import UnnestInnerClasses
+from docx4j_xsdata.models.config import GeneratorConfig
+from docx4j_xsdata.utils.testing import (
     AttrFactory,
     AttrTypeFactory,
     ClassFactory,

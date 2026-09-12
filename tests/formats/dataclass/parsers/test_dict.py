@@ -3,6 +3,11 @@ from dataclasses import asdict, dataclass, field
 from decimal import Decimal
 from xml.etree.ElementTree import QName
 
+from docx4j_xsdata.exceptions import ParserError
+from docx4j_xsdata.formats.dataclass.models.generics import AnyElement, DerivedElement
+from docx4j_xsdata.formats.dataclass.parsers import DictDecoder
+from docx4j_xsdata.models.datatype import XmlDate
+from docx4j_xsdata.utils.testing import FactoryTestCase
 from tests import fixtures_dir
 from tests.fixtures.books import BookForm, Books
 from tests.fixtures.models import (
@@ -20,11 +25,6 @@ from tests.fixtures.models import (
     UnionType,
 )
 from tests.fixtures.wrapper import Charlie, Wrapper
-from xsdata.exceptions import ParserError
-from xsdata.formats.dataclass.models.generics import AnyElement, DerivedElement
-from xsdata.formats.dataclass.parsers import DictDecoder
-from xsdata.models.datatype import XmlDate
-from xsdata.utils.testing import FactoryTestCase
 
 # Default values for BookForm required fields
 BOOK_DEFAULTS = {

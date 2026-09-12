@@ -3,12 +3,12 @@ import os
 
 from click.testing import CliRunner
 
+from docx4j_xsdata.cli import cli
+from docx4j_xsdata.formats.dataclass.parsers import JsonParser
+from docx4j_xsdata.formats.dataclass.serializers import JsonSerializer
+from docx4j_xsdata.formats.dataclass.serializers.config import SerializerConfig
+from docx4j_xsdata.utils.testing import filter_none, load_class
 from tests import fixtures_dir, root
-from xsdata.cli import cli
-from xsdata.formats.dataclass.parsers import JsonParser
-from xsdata.formats.dataclass.serializers import JsonSerializer
-from xsdata.formats.dataclass.serializers.config import SerializerConfig
-from xsdata.utils.testing import filter_none, load_class
 
 os.chdir(root)
 

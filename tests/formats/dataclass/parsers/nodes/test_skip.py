@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from xsdata.formats.dataclass.parsers.nodes import SkipNode
+from docx4j_xsdata.formats.dataclass.parsers.nodes import SkipNode
 
 
 class SKipNodeTests(TestCase):

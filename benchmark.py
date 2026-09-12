@@ -2,6 +2,8 @@ import argparse
 import statistics
 from timeit import Timer
 
+from docx4j_xsdata.formats.dataclass.parsers import JsonParser, handlers
+from docx4j_xsdata.formats.dataclass.serializers import JsonSerializer, writers
 from tests import xsdata_temp_dir
 from tests.integration.benchmarks.utils import (
     make_books,
@@ -10,8 +12,6 @@ from tests.integration.benchmarks.utils import (
     write,
     write_json,
 )
-from xsdata.formats.dataclass.parsers import JsonParser, handlers
-from xsdata.formats.dataclass.serializers import JsonSerializer, writers
 
 if __name__ == "__main__":
     components = [

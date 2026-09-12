@@ -1,12 +1,12 @@
 from unittest import mock
 
-from xsdata.codegen.container import ClassContainer
-from xsdata.codegen.handlers import AddAttributeSubstitutions
-from xsdata.codegen.models import AttrType
-from xsdata.models.config import GeneratorConfig
-from xsdata.models.enums import Tag
-from xsdata.utils.namespaces import build_qname
-from xsdata.utils.testing import (
+from docx4j_xsdata.codegen.container import ClassContainer
+from docx4j_xsdata.codegen.handlers import AddAttributeSubstitutions
+from docx4j_xsdata.codegen.models import AttrType
+from docx4j_xsdata.models.config import GeneratorConfig
+from docx4j_xsdata.models.enums import Tag
+from docx4j_xsdata.utils.namespaces import build_qname
+from docx4j_xsdata.utils.testing import (
     AttrFactory,
     AttrTypeFactory,
     ClassFactory,
@@ -38,7 +38,7 @@ class AddAttributeSubstitutionsTests(FactoryTestCase):
         mock_process_attribute.assert_called_once_with(target, target.attrs[2])
         mock_create_substitutions.assert_called_once()
 
-    @mock.patch("xsdata.utils.collections.find")
+    @mock.patch("docx4j_xsdata.utils.collections.find")
     def test_process_attribute(self, mock_find) -> None:
         target = ClassFactory.create(
             attrs=[

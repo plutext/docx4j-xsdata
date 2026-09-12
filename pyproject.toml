@@ -3,11 +3,11 @@ requires = ["setuptools>=77.0.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["xsdata*"]
+include = ["docx4j_xsdata*"]
 
 [project]
-name = "xsdata"
-description = "Python XML Binding"
+name = "docx4j-xsdata"
+description = "Python XML Binding - the docx4j-python fork of xsdata"
 authors = [{name = "Christodoulos Tsoulloftas", email = "chris@komposta.net"}]
 license = "MIT"
 license-files = ["LICENSE"]
@@ -39,10 +39,11 @@ file = "README.md"
 content-type = "text/markdown"
 
 [project.urls]
-Homepage = "https://github.com/tefra/xsdata"
-Source = "https://github.com/tefra/xsdata"
+Homepage = "https://github.com/plutext/docx4j-xsdata"
+Source = "https://github.com/plutext/docx4j-xsdata"
+Upstream = "https://github.com/tefra/xsdata"
 Documentation = "https://xsdata.readthedocs.io/"
-Changelog = "https://xsdata.readthedocs.io/en/latest/changelog/"
+Changelog = "https://github.com/plutext/docx4j-xsdata/blob/docx4j/docs/fork/CHANGES.md"
 
 [project.optional-dependencies]
 cli = [
@@ -70,13 +71,13 @@ test = [
 ]
 
 [project.scripts]
-xsdata = "xsdata.__main__:main"
+docx4j-xsdata = "docx4j_xsdata.__main__:main"
 
 [tool.setuptools]
 include-package-data = true
 
 [tool.setuptools.dynamic]
-version = {attr = "xsdata.__version__"}
+version = {attr = "docx4j_xsdata.__version__"}
 
 [tool.ruff]
 target-version = "py310"
@@ -124,7 +125,7 @@ ignore = [
     "RUF009",
 ]
 
-exclude = ["tests/fixtures"]
+exclude = ["tests/fixtures", "tools"]
 
 [tool.ruff.lint.per-file-ignores]
 "**/{tests}/*" = ["ANN001", "ANN002", "ANN003", "E501", "B018", "D"]
@@ -146,6 +147,6 @@ doctest_optionflags = "NORMALIZE_WHITESPACE"
 
 [tool.coverage.run]
 omit = [
-    "xsdata/__main__.py",
-    "xsdata/utils/debug.py",
+    "docx4j_xsdata/__main__.py",
+    "docx4j_xsdata/utils/debug.py",
 ]

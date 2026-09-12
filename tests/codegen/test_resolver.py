@@ -1,11 +1,11 @@
 from unittest import mock
 
-from xsdata.codegen.exceptions import CodegenError
-from xsdata.codegen.models import Class
-from xsdata.codegen.resolver import DependenciesResolver
-from xsdata.models.enums import DataType
-from xsdata.utils.namespaces import build_qname
-from xsdata.utils.testing import (
+from docx4j_xsdata.codegen.exceptions import CodegenError
+from docx4j_xsdata.codegen.models import Class
+from docx4j_xsdata.codegen.resolver import DependenciesResolver
+from docx4j_xsdata.models.enums import DataType
+from docx4j_xsdata.utils.namespaces import build_qname
+from docx4j_xsdata.utils.testing import (
     AttrFactory,
     AttrTypeFactory,
     ClassFactory,

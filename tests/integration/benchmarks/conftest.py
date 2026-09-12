@@ -1,5 +1,5 @@
+from docx4j_xsdata.formats.dataclass.context import XmlContext
 from tests import xsdata_temp_dir
-from xsdata.formats.dataclass.context import XmlContext
 
 xsdata_temp_dir.mkdir(parents=True, exist_ok=True)
 context = XmlContext()

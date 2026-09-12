@@ -2,17 +2,17 @@ import sys
 from collections.abc import Iterator
 from unittest import mock
 
-from xsdata.codegen.mappers import DtdMapper
-from xsdata.codegen.models import Class, Restrictions
-from xsdata.models.dtd import (
+from docx4j_xsdata.codegen.mappers import DtdMapper
+from docx4j_xsdata.codegen.models import Class, Restrictions
+from docx4j_xsdata.models.dtd import (
     DtdAttributeDefault,
     DtdAttributeType,
     DtdContentOccur,
     DtdContentType,
     DtdElementType,
 )
-from xsdata.models.enums import DataType, Namespace, Tag
-from xsdata.utils.testing import (
+from docx4j_xsdata.models.enums import DataType, Namespace, Tag
+from docx4j_xsdata.utils.testing import (
     AttrFactory,
     AttrTypeFactory,
     ClassFactory,

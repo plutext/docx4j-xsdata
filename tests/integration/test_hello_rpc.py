@@ -4,6 +4,12 @@ from unittest import TestCase, mock
 import pytest
 from click.testing import CliRunner
 
+from docx4j_xsdata.cli import cli
+from docx4j_xsdata.formats.dataclass.client import Client, Config
+from docx4j_xsdata.formats.dataclass.serializers import XmlSerializer
+from docx4j_xsdata.formats.dataclass.serializers.config import SerializerConfig
+from docx4j_xsdata.formats.dataclass.transports import DefaultTransport
+from docx4j_xsdata.utils.testing import load_class
 from tests import fixtures_dir, root
 from tests.fixtures.hello import (
     GetHelloAsStringResponse,
@@ -11,12 +17,6 @@ from tests.fixtures.hello import (
     HelloGetHelloAsString,
     HelloGetHelloAsStringOutput,
 )
-from xsdata.cli import cli
-from xsdata.formats.dataclass.client import Client, Config
-from xsdata.formats.dataclass.serializers import XmlSerializer
-from xsdata.formats.dataclass.serializers.config import SerializerConfig
-from xsdata.formats.dataclass.transports import DefaultTransport
-from xsdata.utils.testing import load_class
 
 os.chdir(root)
 

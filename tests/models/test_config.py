@@ -3,10 +3,10 @@ import warnings
 from pathlib import Path
 from unittest import TestCase
 
-from xsdata import __version__
-from xsdata.codegen.exceptions import CodegenError
-from xsdata.exceptions import ParserError
-from xsdata.models.config import (
+from docx4j_xsdata import __version__
+from docx4j_xsdata.codegen.exceptions import CodegenError
+from docx4j_xsdata.exceptions import ParserError
+from docx4j_xsdata.models.config import (
     ExtensionType,
     GeneratorConfig,
     GeneratorExtension,

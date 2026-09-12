@@ -1,7 +1,7 @@
 import sys
 from unittest import TestCase
 
-from xsdata.models.xsd import Sequence
+from docx4j_xsdata.models.xsd import Sequence
 
 
 class SequenceTests(TestCase):

@@ -3,11 +3,11 @@ import tempfile
 from pathlib import Path
 from unittest import mock
 
-from xsdata.codegen.exceptions import CodegenError
-from xsdata.codegen.resolver import DependenciesResolver
-from xsdata.formats.dataclass.generator import DataclassGenerator
-from xsdata.models.config import GeneratorConfig
-from xsdata.utils.testing import ClassFactory, FactoryTestCase
+from docx4j_xsdata.codegen.exceptions import CodegenError
+from docx4j_xsdata.codegen.resolver import DependenciesResolver
+from docx4j_xsdata.formats.dataclass.generator import DataclassGenerator
+from docx4j_xsdata.models.config import GeneratorConfig
+from docx4j_xsdata.utils.testing import ClassFactory, FactoryTestCase
 
 
 class DataclassGeneratorTests(FactoryTestCase):

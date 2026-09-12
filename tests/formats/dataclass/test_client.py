@@ -1,6 +1,11 @@
 from dataclasses import asdict, replace
 from unittest import TestCase, mock
 
+from docx4j_xsdata.exceptions import ClientValueError
+from docx4j_xsdata.formats.dataclass.client import Client, Config, TransportTypes
+from docx4j_xsdata.formats.dataclass.parsers import XmlParser
+from docx4j_xsdata.formats.dataclass.serializers import XmlSerializer
+from docx4j_xsdata.formats.dataclass.transports import DefaultTransport
 from tests.fixtures.calculator import (
     Add,
     CalculatorSoapAdd,
@@ -8,11 +13,6 @@ from tests.fixtures.calculator import (
     CalculatorSoapAddOutput,
 )
 from tests.fixtures.hello import HelloGetHelloAsString
-from xsdata.exceptions import ClientValueError
-from xsdata.formats.dataclass.client import Client, Config, TransportTypes
-from xsdata.formats.dataclass.parsers import XmlParser
-from xsdata.formats.dataclass.serializers import XmlSerializer
-from xsdata.formats.dataclass.transports import DefaultTransport
 
 response = """
 <?xml version="1.0" encoding="utf-8"?>

@@ -1,8 +1,8 @@
 from collections.abc import Generator
 
-from xsdata.codegen.handlers import VacuumInnerClasses
-from xsdata.models.enums import DataType
-from xsdata.utils.testing import (
+from docx4j_xsdata.codegen.handlers import VacuumInnerClasses
+from docx4j_xsdata.models.enums import DataType
+from docx4j_xsdata.utils.testing import (
     AttrFactory,
     AttrTypeFactory,
     ClassFactory,

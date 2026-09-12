@@ -1,6 +1,6 @@
 # Architecture
 
-The [ResourceTransformer][xsdata.codegen.transformer.ResourceTransformer] is the
+The [ResourceTransformer][docx4j_xsdata.codegen.transformer.ResourceTransformer] is the
 orchestrator of the code generation procedure.
 
 ```mermaid
@@ -29,10 +29,10 @@ Additionally, the parsers are responsible for assigning common values required f
 analysis, such as locations, a namespace prefix-URI map, and common namespaces like xsi
 and xlink.
 
-- XSD: [SchemaParser][xsdata.codegen.parsers.SchemaParser]
-- DTD: [DtdParser][xsdata.codegen.parsers.DtdParser]
-- WSDL: [DefinitionsParser][xsdata.codegen.parsers.DefinitionsParser]
-- XML: [TreeParser][xsdata.formats.dataclass.parsers.TreeParser]
+- XSD: [SchemaParser][docx4j_xsdata.codegen.parsers.SchemaParser]
+- DTD: [DtdParser][docx4j_xsdata.codegen.parsers.DtdParser]
+- WSDL: [DefinitionsParser][docx4j_xsdata.codegen.parsers.DefinitionsParser]
+- XML: [TreeParser][docx4j_xsdata.formats.dataclass.parsers.TreeParser]
 - JSON: [json.loads][]
 
 ## Convert to classes
@@ -41,11 +41,11 @@ A resource-specific parser is utilized to convert the transfer objects to codege
 classes. These mappers encapsulate the pertinent logic detailing how the resource types
 should be interpreted.
 
-- XSD: [SchemaMapper][xsdata.codegen.mappers.SchemaMapper]
-- DTD: [DtdMapper][xsdata.codegen.mappers.DtdMapper]
-- WSDL: [DefinitionsMapper][xsdata.codegen.mappers.DefinitionsMapper]
-- XML: [ElementMapper][xsdata.codegen.mappers.ElementMapper]
-- JSON: [DictMapper][xsdata.codegen.mappers.DictMapper]
+- XSD: [SchemaMapper][docx4j_xsdata.codegen.mappers.SchemaMapper]
+- DTD: [DtdMapper][docx4j_xsdata.codegen.mappers.DtdMapper]
+- WSDL: [DefinitionsMapper][docx4j_xsdata.codegen.mappers.DefinitionsMapper]
+- XML: [ElementMapper][docx4j_xsdata.codegen.mappers.ElementMapper]
+- JSON: [DictMapper][docx4j_xsdata.codegen.mappers.DictMapper]
 
 ## Analyze classes
 
@@ -90,11 +90,11 @@ graph LR
 </xs:redefine>
 ```
 
-API: [xsdata.codegen.validator.ClassValidator][]
+API: [docx4j_xsdata.codegen.validator.ClassValidator][]
 
 ### Analyze Classes
 
-The classes are wrapped in a [ClassContainer][xsdata.codegen.container.ClassContainer]
+The classes are wrapped in a [ClassContainer][docx4j_xsdata.codegen.container.ClassContainer]
 instance. It includes some easy finder methods and orchestrates flattening/filtering
 processes.
 
@@ -103,48 +103,48 @@ pass through each step before next one starts. The order of the steps is very im
 
 ### Step: Ungroup
 
-- [FlattenAttributeGroups][xsdata.codegen.handlers.FlattenAttributeGroups]
+- [FlattenAttributeGroups][docx4j_xsdata.codegen.handlers.FlattenAttributeGroups]
 
 ### Step: Flatten
 
-- [CalculateAttributePaths][xsdata.codegen.handlers.CalculateAttributePaths]
-- [FlattenClassExtensions][xsdata.codegen.handlers.FlattenClassExtensions]
-- [SanitizeEnumerationClass][xsdata.codegen.handlers.SanitizeEnumerationClass]
-- [UpdateAttributesEffectiveChoice][xsdata.codegen.handlers.UpdateAttributesEffectiveChoice]
-- [UnnestInnerClasses][xsdata.codegen.handlers.UnnestInnerClasses]
-- [AddAttributeSubstitutions][xsdata.codegen.handlers.AddAttributeSubstitutions]
-- [ProcessAttributeTypes][xsdata.codegen.handlers.ProcessAttributeTypes]
-- [MergeAttributes][xsdata.codegen.handlers.MergeAttributes]
-- [ProcessMixedContentClass][xsdata.codegen.handlers.ProcessMixedContentClass]
+- [CalculateAttributePaths][docx4j_xsdata.codegen.handlers.CalculateAttributePaths]
+- [FlattenClassExtensions][docx4j_xsdata.codegen.handlers.FlattenClassExtensions]
+- [SanitizeEnumerationClass][docx4j_xsdata.codegen.handlers.SanitizeEnumerationClass]
+- [UpdateAttributesEffectiveChoice][docx4j_xsdata.codegen.handlers.UpdateAttributesEffectiveChoice]
+- [UnnestInnerClasses][docx4j_xsdata.codegen.handlers.UnnestInnerClasses]
+- [AddAttributeSubstitutions][docx4j_xsdata.codegen.handlers.AddAttributeSubstitutions]
+- [ProcessAttributeTypes][docx4j_xsdata.codegen.handlers.ProcessAttributeTypes]
+- [MergeAttributes][docx4j_xsdata.codegen.handlers.MergeAttributes]
+- [ProcessMixedContentClass][docx4j_xsdata.codegen.handlers.ProcessMixedContentClass]
 
 ### Step: Filer
 
-- [FilterClasses][xsdata.codegen.handlers.FilterClasses]
+- [FilterClasses][docx4j_xsdata.codegen.handlers.FilterClasses]
 
 ### Step: Sanitize
 
-- [ResetAttributeSequences][xsdata.codegen.handlers.ResetAttributeSequences]
-- [RenameDuplicateAttributes][xsdata.codegen.handlers.RenameDuplicateAttributes]
+- [ResetAttributeSequences][docx4j_xsdata.codegen.handlers.ResetAttributeSequences]
+- [RenameDuplicateAttributes][docx4j_xsdata.codegen.handlers.RenameDuplicateAttributes]
 
 ### Step: Resolve
 
-- [ValidateAttributesOverrides][xsdata.codegen.handlers.ValidateAttributesOverrides]
+- [ValidateAttributesOverrides][docx4j_xsdata.codegen.handlers.ValidateAttributesOverrides]
 
 ### Step: Vacuum
 
-- [VacuumInnerClasses][xsdata.codegen.handlers.VacuumInnerClasses]
+- [VacuumInnerClasses][docx4j_xsdata.codegen.handlers.VacuumInnerClasses]
 
 ### Step: Finalize
 
-- [DetectCircularReferences][xsdata.codegen.handlers.DetectCircularReferences]
-- [CreateCompoundFields][xsdata.codegen.handlers.CreateCompoundFields]
-- [CreateWrapperFields][xsdata.codegen.handlers.CreateWrapperFields]
-- [DisambiguateChoices][xsdata.codegen.handlers.DisambiguateChoices]
-- [SanitizeAttributesDefaultValue][xsdata.codegen.handlers.SanitizeAttributesDefaultValue]
-- [ResetAttributeSequenceNumbers][xsdata.codegen.handlers.ResetAttributeSequenceNumbers]
+- [DetectCircularReferences][docx4j_xsdata.codegen.handlers.DetectCircularReferences]
+- [CreateCompoundFields][docx4j_xsdata.codegen.handlers.CreateCompoundFields]
+- [CreateWrapperFields][docx4j_xsdata.codegen.handlers.CreateWrapperFields]
+- [DisambiguateChoices][docx4j_xsdata.codegen.handlers.DisambiguateChoices]
+- [SanitizeAttributesDefaultValue][docx4j_xsdata.codegen.handlers.SanitizeAttributesDefaultValue]
+- [ResetAttributeSequenceNumbers][docx4j_xsdata.codegen.handlers.ResetAttributeSequenceNumbers]
 
 ### Step: Designate
 
-- [RenameDuplicateClasses][xsdata.codegen.handlers.RenameDuplicateClasses]
-- [ValidateReferences][xsdata.codegen.handlers.ValidateReferences]
-- [DesignateClassPackages][xsdata.codegen.handlers.DesignateClassPackages]
+- [RenameDuplicateClasses][docx4j_xsdata.codegen.handlers.RenameDuplicateClasses]
+- [ValidateReferences][docx4j_xsdata.codegen.handlers.ValidateReferences]
+- [DesignateClassPackages][docx4j_xsdata.codegen.handlers.DesignateClassPackages]

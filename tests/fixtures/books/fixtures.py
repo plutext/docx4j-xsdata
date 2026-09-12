@@ -1,5 +1,5 @@
+from docx4j_xsdata.models.datatype import XmlDate
 from tests.fixtures.books import BookForm, Books
-from xsdata.models.datatype import XmlDate
 
 books = Books(
     book=[

@@ -1,11 +1,11 @@
 from unittest import mock
 
-from xsdata.codegen.container import ClassContainer
-from xsdata.codegen.utils import ClassUtils
-from xsdata.codegen.validator import ClassValidator
-from xsdata.models.config import GeneratorConfig
-from xsdata.models.enums import DataType, Tag
-from xsdata.utils.testing import (
+from docx4j_xsdata.codegen.container import ClassContainer
+from docx4j_xsdata.codegen.utils import ClassUtils
+from docx4j_xsdata.codegen.validator import ClassValidator
+from docx4j_xsdata.models.config import GeneratorConfig
+from docx4j_xsdata.models.enums import DataType, Tag
+from docx4j_xsdata.utils.testing import (
     AttrFactory,
     AttrTypeFactory,
     ClassFactory,
@@ -61,7 +61,7 @@ class ClassValidatorTests(FactoryTestCase):
         self.validator.remove_invalid_classes(classes)
         self.assertEqual([second, third], classes)
 
-    @mock.patch("xsdata.codegen.mappers.definitions.logger.warning")
+    @mock.patch("docx4j_xsdata.codegen.mappers.definitions.logger.warning")
     def test_handle_duplicate_types(self, mock_warning) -> None:
         one = ClassFactory.create(tag=Tag.ELEMENT)
         two = one.clone()

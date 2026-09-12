@@ -2,10 +2,10 @@ from collections.abc import Iterator
 from types import GeneratorType
 from unittest import mock
 
-from xsdata.codegen.mappers import SchemaMapper
-from xsdata.codegen.models import Class, Restrictions
-from xsdata.models.enums import DataType, FormType, Tag
-from xsdata.models.xsd import (
+from docx4j_xsdata.codegen.mappers import SchemaMapper
+from docx4j_xsdata.codegen.models import Class, Restrictions
+from docx4j_xsdata.models.enums import DataType, FormType, Tag
+from docx4j_xsdata.models.xsd import (
     Alternative,
     Annotation,
     Attribute,
@@ -25,8 +25,8 @@ from xsdata.models.xsd import (
     SimpleContent,
     SimpleType,
 )
-from xsdata.utils.namespaces import build_qname
-from xsdata.utils.testing import (
+from docx4j_xsdata.utils.namespaces import build_qname
+from docx4j_xsdata.utils.testing import (
     AttrFactory,
     AttrTypeFactory,
     ClassFactory,

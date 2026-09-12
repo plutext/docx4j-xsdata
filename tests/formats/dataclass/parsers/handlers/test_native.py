@@ -4,13 +4,13 @@ from xml import etree
 
 import pytest
 
+from docx4j_xsdata.exceptions import ParserError, XmlHandlerError
+from docx4j_xsdata.formats.dataclass.parsers.bases import RecordParser
+from docx4j_xsdata.formats.dataclass.parsers.handlers import XmlEventHandler
+from docx4j_xsdata.formats.dataclass.parsers.handlers.native import get_base_url
 from tests import fixtures_dir
 from tests.fixtures.books import BookForm, Books
 from tests.fixtures.books.fixtures import books, events, events_default_ns
-from xsdata.exceptions import ParserError, XmlHandlerError
-from xsdata.formats.dataclass.parsers.bases import RecordParser
-from xsdata.formats.dataclass.parsers.handlers import XmlEventHandler
-from xsdata.formats.dataclass.parsers.handlers.native import get_base_url
 
 
 class XmlEventHandlerTests(TestCase):

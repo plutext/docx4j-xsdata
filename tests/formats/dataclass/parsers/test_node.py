@@ -3,18 +3,18 @@ from typing import Any
 from unittest import mock
 from unittest.case import TestCase
 
+from docx4j_xsdata.exceptions import ParserError
+from docx4j_xsdata.formats.dataclass.models.elements import XmlType
+from docx4j_xsdata.formats.dataclass.models.generics import DerivedElement
+from docx4j_xsdata.formats.dataclass.parsers.bases import NodeParser
+from docx4j_xsdata.formats.dataclass.parsers.handlers import XmlEventHandler
+from docx4j_xsdata.formats.dataclass.parsers.mixins import XmlHandler
+from docx4j_xsdata.formats.dataclass.parsers.nodes.primitive import PrimitiveNode
+from docx4j_xsdata.formats.dataclass.parsers.nodes.skip import SkipNode
+from docx4j_xsdata.models.enums import Namespace, QNames
+from docx4j_xsdata.utils.testing import XmlVarFactory
 from tests.fixtures.books import BookForm, Books
 from tests.fixtures.models import TypeA
-from xsdata.exceptions import ParserError
-from xsdata.formats.dataclass.models.elements import XmlType
-from xsdata.formats.dataclass.models.generics import DerivedElement
-from xsdata.formats.dataclass.parsers.bases import NodeParser
-from xsdata.formats.dataclass.parsers.handlers import XmlEventHandler
-from xsdata.formats.dataclass.parsers.mixins import XmlHandler
-from xsdata.formats.dataclass.parsers.nodes.primitive import PrimitiveNode
-from xsdata.formats.dataclass.parsers.nodes.skip import SkipNode
-from xsdata.models.enums import Namespace, QNames
-from xsdata.utils.testing import XmlVarFactory
 
 
 class NodeParserTests(TestCase):

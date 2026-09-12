@@ -2,10 +2,17 @@ import copy
 from collections.abc import Generator
 from unittest import TestCase
 
-from xsdata.codegen.exceptions import CodegenError
-from xsdata.formats.dataclass.models.generics import AnyElement
-from xsdata.models.wsdl import Binding, Definitions, Message, PortType, Service, Types
-from xsdata.models.xsd import Schema
+from docx4j_xsdata.codegen.exceptions import CodegenError
+from docx4j_xsdata.formats.dataclass.models.generics import AnyElement
+from docx4j_xsdata.models.wsdl import (
+    Binding,
+    Definitions,
+    Message,
+    PortType,
+    Service,
+    Types,
+)
+from docx4j_xsdata.models.xsd import Schema
 
 
 class DefinitionsTests(TestCase):

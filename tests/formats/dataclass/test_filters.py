@@ -1,10 +1,9 @@
 from collections import namedtuple
 from unittest import mock
 
-from tests.fixtures.datatypes import Telephone
-from xsdata.codegen.models import Restrictions
-from xsdata.formats.dataclass.filters import Filters
-from xsdata.models.config import (
+from docx4j_xsdata.codegen.models import Restrictions
+from docx4j_xsdata.formats.dataclass.filters import Filters
+from docx4j_xsdata.models.config import (
     DocstringStyle,
     ExtensionType,
     GeneratorConfig,
@@ -13,14 +12,15 @@ from xsdata.models.config import (
     NameCase,
     ObjectType,
 )
-from xsdata.models.enums import DataType, Namespace, Tag
-from xsdata.utils.testing import (
+from docx4j_xsdata.models.enums import DataType, Namespace, Tag
+from docx4j_xsdata.utils.testing import (
     AttrFactory,
     AttrTypeFactory,
     ClassFactory,
     ExtensionFactory,
     FactoryTestCase,
 )
+from tests.fixtures.datatypes import Telephone
 
 type_str = AttrTypeFactory.native(DataType.STRING)
 type_int = AttrTypeFactory.native(DataType.INT)
@@ -835,7 +835,7 @@ class FiltersTests(FactoryTestCase):
         self.assertIn(expected, self.filters.default_imports(output))
 
     def test_default_imports_with_builtin_datatype(self) -> None:
-        expected = "from xsdata.models.datatype import XmlDateTime"
+        expected = "from docx4j_xsdata.models.datatype import XmlDateTime"
 
         self.assertIn(expected, self.filters.default_imports("Optional[XmlDateTime]"))
         self.assertIn(expected, self.filters.default_imports("Union[str, XmlDateTime]"))

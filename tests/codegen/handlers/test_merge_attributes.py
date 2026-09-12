@@ -1,7 +1,7 @@
-from xsdata.codegen.handlers import MergeAttributes
-from xsdata.codegen.models import Restrictions
-from xsdata.models.enums import DataType
-from xsdata.utils.testing import (
+from docx4j_xsdata.codegen.handlers import MergeAttributes
+from docx4j_xsdata.codegen.models import Restrictions
+from docx4j_xsdata.models.enums import DataType
+from docx4j_xsdata.utils.testing import (
     AttrFactory,
     AttrTypeFactory,
     ClassFactory,

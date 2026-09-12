@@ -1,10 +1,10 @@
 from unittest import mock
 
-from xsdata.codegen.container import ClassContainer, Steps
-from xsdata.codegen.models import Class, Status
-from xsdata.models.config import GeneratorConfig
-from xsdata.models.enums import Tag
-from xsdata.utils.testing import AttrFactory, ClassFactory, FactoryTestCase
+from docx4j_xsdata.codegen.container import ClassContainer, Steps
+from docx4j_xsdata.codegen.models import Class, Status
+from docx4j_xsdata.models.config import GeneratorConfig
+from docx4j_xsdata.models.enums import Tag
+from docx4j_xsdata.utils.testing import AttrFactory, ClassFactory, FactoryTestCase
 
 
 class ClassContainerTests(FactoryTestCase):

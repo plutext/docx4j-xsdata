@@ -2,11 +2,11 @@ import sys
 from collections.abc import Generator
 from unittest import mock
 
-from xsdata.codegen.exceptions import CodegenError
-from xsdata.codegen.models import Restrictions, Status
-from xsdata.codegen.utils import ClassUtils
-from xsdata.models.enums import DataType, Tag
-from xsdata.utils.testing import (
+from docx4j_xsdata.codegen.exceptions import CodegenError
+from docx4j_xsdata.codegen.models import Restrictions, Status
+from docx4j_xsdata.codegen.utils import ClassUtils
+from docx4j_xsdata.models.enums import DataType, Tag
+from docx4j_xsdata.utils.testing import (
     AttrFactory,
     AttrTypeFactory,
     ClassFactory,

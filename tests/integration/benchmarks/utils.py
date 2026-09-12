@@ -1,8 +1,8 @@
+from docx4j_xsdata.formats.dataclass.parsers import JsonParser, XmlParser
+from docx4j_xsdata.formats.dataclass.serializers import JsonSerializer, XmlSerializer
+from docx4j_xsdata.models.datatype import XmlDate
 from tests.fixtures.books import BookForm, Books
 from tests.integration.benchmarks.conftest import context, xsdata_temp_dir
-from xsdata.formats.dataclass.parsers import JsonParser, XmlParser
-from xsdata.formats.dataclass.serializers import JsonSerializer, XmlSerializer
-from xsdata.models.datatype import XmlDate
 
 
 def make_books(how_many: int) -> Books:

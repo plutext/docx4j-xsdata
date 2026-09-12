@@ -1,7 +1,7 @@
+from docx4j_xsdata.formats.dataclass.parsers.json import JsonParser
+from docx4j_xsdata.utils.testing import FactoryTestCase
 from tests import fixtures_dir
 from tests.fixtures.books import Books
-from xsdata.formats.dataclass.parsers.json import JsonParser
-from xsdata.utils.testing import FactoryTestCase
 
 
 class JsonParserTests(FactoryTestCase):
