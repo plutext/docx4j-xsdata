@@ -40,6 +40,7 @@ class GeneratorConfigTests(TestCase):
             "    <IgnorePatterns>false</IgnorePatterns>\n"
             "    <IncludeHeader>false</IncludeHeader>\n"
             "    <AllOptional>false</AllOptional>\n"
+            "    <SchemaDefaults>field</SchemaDefaults>\n"
             "  </Output>\n"
             "  <Conventions>\n"
             '    <ClassName case="pascalCase" safePrefix="type"/>\n'
@@ -102,6 +103,7 @@ class GeneratorConfigTests(TestCase):
             "    <IgnorePatterns>false</IgnorePatterns>\n"
             "    <IncludeHeader>false</IncludeHeader>\n"
             "    <AllOptional>false</AllOptional>\n"
+            "    <SchemaDefaults>field</SchemaDefaults>\n"
             "  </Output>\n"
             "  <Conventions>\n"
             '    <ClassName case="pascalCase" safePrefix="type"/>\n'

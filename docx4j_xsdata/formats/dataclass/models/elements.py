@@ -85,6 +85,11 @@ class XmlVar(MetaMixin):
         nillable: Indicates if the field supports nillable content
         sequence: Specifies rendering values in sequential mode
         default: Default value or factory for the field
+        schema_default: docx4j fork: the value the schema declares as the
+            default for this field, when the generator was told to keep it
+            in the metadata rather than apply it as the field default. None
+            when the schema declares none. The field itself is never filled
+            with it, neither on construction nor on parse.
         xml_type: Type of the XML field (element, attribute, etc.)
         namespaces: List of supported namespaces
         elements: Mapping of qualified name-repeatable elements
@@ -132,6 +137,7 @@ class XmlVar(MetaMixin):
         # Calculated
         "qname",
         "required",
+        "schema_default",
         "sequence",
         "tokens",
         "tokens_factory",
@@ -164,9 +170,11 @@ class XmlVar(MetaMixin):
         namespaces: Sequence[str],
         elements: Mapping[str, XmlVar],
         wildcards: Sequence[XmlVar],
+        schema_default: Any = None,
         **kwargs: Any,
     ):
         """Initialize the xml var."""
+        self.schema_default = schema_default
         self.index = index
         self.name = name
         self.local_name = local_name

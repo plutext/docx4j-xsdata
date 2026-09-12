@@ -394,6 +394,7 @@ class XmlVarBuilder:
         format_str = metadata.get("format", None)
         sequence = metadata.get("sequence", None)
         wrapper = metadata.get("wrapper", None)
+        schema_default = metadata.get("schema_default", None)
 
         annotation = evaluate(type_hint, globalns)
 
@@ -457,6 +458,7 @@ class XmlVarBuilder:
             wildcards=wildcards,
             namespaces=namespaces,
             xml_type=xml_type,
+            schema_default=schema_default,
         )
 
     def build_choices(

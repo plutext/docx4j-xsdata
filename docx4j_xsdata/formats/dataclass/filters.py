@@ -17,6 +17,7 @@ from docx4j_xsdata.models.config import (
     GeneratorExtension,
     ObjectType,
     OutputFormat,
+    SchemaDefaults,
 )
 from docx4j_xsdata.models.enums import Tag
 from docx4j_xsdata.utils import collections, namespaces, text
@@ -28,6 +29,7 @@ class Filters:
 
     DEFAULT_KEY = "default"
     FACTORY_KEY = "default_factory"
+    SCHEMA_DEFAULT_KEY = "schema_default"
 
     __slots__ = (
         "all_optional",
@@ -49,6 +51,7 @@ class Filters:
         "package_case",
         "package_safe_prefix",
         "relative_imports",
+        "schema_defaults",
         "substitutions",
     )
 
@@ -96,6 +99,7 @@ class Filters:
         self.generic_collections: bool = config.output.generic_collections
         self.relative_imports: bool = config.output.relative_imports
         self.all_optional: bool = config.output.all_optional
+        self.schema_defaults: SchemaDefaults = config.output.schema_defaults
         self.format = config.output.format
 
         # Build things
@@ -448,6 +452,7 @@ class Filters:
             "namespace": namespace,
             "mixed": attr.mixed,
             "choices": self.field_choices(obj, attr, parent_namespace),
+            self.SCHEMA_DEFAULT_KEY: self.schema_default_metadata(attr),
             **restrictions,
         }
 
@@ -767,12 +772,62 @@ class Filters:
 
         return attr.default is None and not attr.is_optional
 
+    def keep_schema_default_in_metadata(self, attr: Attr) -> bool:
+        """Return whether the schema default moves out of the field.
+
+        docx4j fork, CR-001 section 3: xsdata materialises a field default
+        from ``<xs:attribute default="...">`` and the serializer writes every
+        non-None field, which invents 5,516 absent attributes over a corpus
+        of 50 Word parts. ``SerializerConfig(ignore_default_attributes=True)``
+        removes those but also drops the 773 that really were in the source
+        and happen to equal the default, because the dataclass cannot tell
+        "absent" from "present and equal to the default".
+
+        With ``<Output><SchemaDefaults>metadata</SchemaDefaults></Output>``
+        the field default is None, so absent stays absent and present stays
+        present, and the schema default is kept in the field metadata under
+        the ``schema_default`` key for a resolver to consult.
+
+        Args:
+            attr: The attr instance
+
+        Returns:
+            Whether the schema default belongs in the metadata.
+        """
+        return (
+            self.schema_defaults is SchemaDefaults.METADATA
+            and attr.default is not None
+            and not attr.fixed
+            and not attr.is_prohibited
+            and not attr.is_factory
+            and (attr.is_element or attr.is_attribute)
+        )
+
+    def schema_default_metadata(self, attr: Attr) -> str | None:
+        """Return the schema default metadata value, if any.
+
+        The value is the schema's lexical default string, e.g. ``"true"``.
+        Enumeration defaults are the generated member instead, so that the
+        reference to the enum class is not lost.
+        """
+        if not self.keep_schema_default_in_metadata(attr):
+            return None
+
+        assert attr.default is not None
+        if attr.default.startswith("@enum@"):
+            # Literal[...] is the filters' escape hatch for an unquoted value
+            return f"Literal[{self.field_default_enum(attr)}]"
+
+        return attr.default
+
     def field_default_value(self, attr: Attr, ns_map: dict | None = None) -> Any:
         """Generate the field default value/factory for the given attribute."""
         if attr.is_list or (attr.is_tokens and not attr.default):
             return "tuple" if self.format.frozen else "list"
         if attr.is_dict:
             return "dict"
+        if self.keep_schema_default_in_metadata(attr):
+            return None
         if attr.default is None:
             return None if attr.is_optional or self.force_optional(attr) else False
         if not isinstance(attr.default, str):
@@ -857,6 +912,7 @@ class Filters:
             attr.is_nillable
             or (attr.default is None and attr.is_optional)
             or self.force_optional(attr)
+            or self.keep_schema_default_in_metadata(attr)
         ):
             return f"None | {result}"
 

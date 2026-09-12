@@ -273,6 +273,54 @@ moving it out of the field.
 
 **CLI Option:** none, project configuration only
 
+### SchemaDefaults
+
+!!! Info "docx4j fork option, it does not exist upstream."
+
+Where a schema declared default value ends up.
+
+| Value | Behaviour |
+| --- | --- |
+| `field` | the dataclass field default, upstream behaviour |
+| `metadata` | `default=None` on the field, the schema default under the `schema_default` metadata key |
+
+```xml
+<Output>
+  <SchemaDefaults>metadata</SchemaDefaults>
+</Output>
+```
+
+With `field`, the serializer writes every non-None field, so an attribute the source
+document never had is invented on output;
+`SerializerConfig(ignore_default_attributes=True)` removes those but also drops the
+attributes that really were present and happen to equal the default, because the
+dataclass cannot tell "absent" from "present and equal to the default".
+
+With `metadata` the field is `None | T` with `default=None`, so absent stays absent and
+present stays present, and nothing is lost: the schema default is on the field metadata
+and on the runtime binding metadata as `XmlVar.schema_default`, for a resolver to
+consult. The parser never fills the field with it.
+
+```python
+locked: None | bool = field(
+    default=None,
+    metadata={
+        "type": "Attribute",
+        "schema_default": "true",
+    },
+)
+```
+
+The value is the schema's lexical default string. For a field whose type is a generated
+enumeration it is the enum member itself, so the reference to the class is not lost.
+
+`fixed` value attrs are not affected: they are generated with `init=False` and the field
+is the only place the value lives.
+
+**Default Value:** `field`
+
+**CLI Option:** none, project configuration only
+
 ## Convention Settings
 
 Apply different naming convention per identifier.

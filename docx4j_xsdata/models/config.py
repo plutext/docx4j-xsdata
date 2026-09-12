@@ -106,6 +106,22 @@ class DocstringStyle(Enum):
     BLANK = "Blank"
 
 
+class SchemaDefaults(Enum):
+    """Schema default value placement enumeration.
+
+    docx4j fork option, it does not exist upstream.
+
+    Attributes:
+        FIELD: field: the schema default becomes the dataclass field
+            default, upstream behaviour
+        METADATA: metadata: the field default is None and the schema
+            default is carried in the field metadata
+    """
+
+    FIELD = "field"
+    METADATA = "metadata"
+
+
 class ObjectType(Enum):
     """Object type enumeration.
 
@@ -224,6 +240,8 @@ class GeneratorOutput:
         all_optional: docx4j fork: generate every element/attribute field as
             `None | T` with `default=None`, whatever the schema's minOccurs
             or use="required" says.
+        schema_defaults: docx4j fork: where a schema declared default value
+            ends up, in the dataclass field or in the field metadata.
     """
 
     package: str = field(default="generated", metadata={"type": "Element"})
@@ -249,6 +267,10 @@ class GeneratorOutput:
     include_header: bool = field(default=False, metadata={"type": "Element"})
     all_optional: bool = field(
         default=False, metadata={"type": "Element", "cli": False}
+    )
+    schema_defaults: SchemaDefaults = field(
+        default=SchemaDefaults.FIELD,
+        metadata={"type": "Element", "cli": False},
     )
 
     def __post_init__(self):
