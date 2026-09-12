@@ -5,3 +5,13 @@ __NAMESPACE__ = "{{ namespace }}"
 {% endif %}
 
 {{ output }}
+{%- if deferred_imports %}
+
+
+# Imported below the classes, not above them: these names are only needed
+# once the classes exist, and importing them earlier would not be possible
+# where two modules depend on each other.
+{% with imports = deferred_imports %}
+{%- include "imports.jinja2" -%}
+{% endwith %}
+{%- endif %}

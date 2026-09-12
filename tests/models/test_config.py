@@ -41,6 +41,7 @@ class GeneratorConfigTests(TestCase):
             "    <IncludeHeader>false</IncludeHeader>\n"
             "    <AllOptional>false</AllOptional>\n"
             "    <SchemaDefaults>field</SchemaDefaults>\n"
+            "    <DeferredImports>false</DeferredImports>\n"
             "  </Output>\n"
             "  <Conventions>\n"
             '    <ClassName case="pascalCase" safePrefix="type"/>\n'
@@ -104,6 +105,7 @@ class GeneratorConfigTests(TestCase):
             "    <IncludeHeader>false</IncludeHeader>\n"
             "    <AllOptional>false</AllOptional>\n"
             "    <SchemaDefaults>field</SchemaDefaults>\n"
+            "    <DeferredImports>false</DeferredImports>\n"
             "  </Output>\n"
             "  <Conventions>\n"
             '    <ClassName case="pascalCase" safePrefix="type"/>\n'

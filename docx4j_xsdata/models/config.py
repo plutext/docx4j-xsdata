@@ -245,6 +245,9 @@ class GeneratorOutput:
         list_factory: docx4j fork: the dotted path of a list subclass to use
             as the default factory of every list field, e.g.
             `docx4j_py.child.ChildList`. Unset means the builtin list.
+        deferred_imports: docx4j fork: import the classes that are only
+            needed after the module's own classes exist at the bottom of
+            the module, so that mutually dependent modules can be imported.
     """
 
     package: str = field(default="generated", metadata={"type": "Element"})
@@ -277,6 +280,9 @@ class GeneratorOutput:
     )
     list_factory: str | None = field(
         default=None, metadata={"type": "Element", "cli": False}
+    )
+    deferred_imports: bool = field(
+        default=False, metadata={"type": "Element", "cli": False}
     )
 
     def __post_init__(self):

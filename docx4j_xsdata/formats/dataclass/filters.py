@@ -39,6 +39,7 @@ class Filters:
         "constant_case",
         "constant_safe_prefix",
         "default_class_annotation",
+        "deferred_imports",
         "docstring_style",
         "extensions",
         "field_case",
@@ -101,6 +102,7 @@ class Filters:
         self.generic_collections: bool = config.output.generic_collections
         self.relative_imports: bool = config.output.relative_imports
         self.all_optional: bool = config.output.all_optional
+        self.deferred_imports: bool = config.output.deferred_imports
         self.schema_defaults: SchemaDefaults = config.output.schema_defaults
         self.format = config.output.format
         self.list_factory: str | None = self.build_list_factory(config)
@@ -1006,6 +1008,11 @@ class Filters:
         if choice.is_tokens:
             iterable_fmt = self._get_iterable_format()
             result = iterable_fmt.format(result)
+
+        if self.deferred_imports and any(not tp.native for tp in choice.types):
+            # The class may be imported at the bottom of the module, so the
+            # metadata must not need the object while the class is created.
+            return f'ForwardRef("{result.replace(chr(34), "")}")'
 
         if result.startswith('"'):
             return f"ForwardRef({result})"

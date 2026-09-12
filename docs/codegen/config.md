@@ -359,6 +359,47 @@ tuples.
 
 **CLI Option:** none, project configuration only
 
+### DeferredImports
+
+!!! Info "docx4j fork option, it does not exist upstream."
+
+Import the classes a module only needs once its own classes exist at the bottom of the
+module rather than the top, so that modules which depend on each other can be imported.
+
+```xml
+<Output>
+  <DeferredImports>true</DeferredImports>
+</Output>
+```
+
+`--structure-style namespaces` puts one module per target namespace, and a schema set
+whose namespaces reference each other in both directions then produces modules that
+import each other. ECMA-376 is such a set: WordprocessingML embeds DrawingML and
+DrawingML embeds WordprocessingML through `a:graphicData`, and the generated package
+cannot be imported at all.
+
+Postponed annotations already make the type hints strings, so the only names a module
+needs while its classes are being created are its base classes, the values it puts in
+`default=` and the members of its enumerations. Everything else moves below the classes,
+and the `choices` metadata of compound fields holds `ForwardRef("Name")` rather than the
+class object, which the runtime resolves when it builds the binding metadata.
+
+Two more things follow from it:
+
+* A package `__init__` resolves its re-exports through a module `__getattr__` instead of
+  importing them, so touching one module of a package no longer forces its siblings.
+* The output root package gets an import order manifest: the strongly connected
+  components of the module graph in dependency order, each sorted by its top imports.
+  Python initializes a parent package before any of its submodules, so it runs whatever
+  the entry point into the package is.
+
+The option is not a cure for a cycle of base classes, which is a real cycle, but there is
+no such cycle in ECMA-376.
+
+**Default Value:** `False`
+
+**CLI Option:** none, project configuration only
+
 ## Convention Settings
 
 Apply different naming convention per identifier.

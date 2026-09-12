@@ -8,6 +8,7 @@ source.
 
 import gc
 import importlib
+import itertools
 import os
 import shutil
 import sys
@@ -19,6 +20,8 @@ from click.testing import CliRunner
 
 from docx4j_xsdata.cli import cli
 from docx4j_xsdata.utils.package import module_path, package_path
+
+_counter = itertools.count(1)
 
 CONFIG = """<?xml version="1.0" encoding="UTF-8"?>
 <Config xmlns="http://pypi.org/project/xsdata" version="26.2">
@@ -61,8 +64,8 @@ class Generated:
         )
 
     def module_source(self, name: str) -> str:
-        """Return the source of one generated module."""
-        return self.path.joinpath(f"{name}.py").read_text()
+        """Return the source of one generated module, by relative path."""
+        return self.path.joinpath(*f"{name}.py".split("/")).read_text()
 
     def load(self) -> Any:
         """Import the generated package and return the module."""
@@ -89,24 +92,34 @@ class Generated:
 def generate(
     schema: str,
     options: str = "",
-    package: str = "models",
+    package: str | None = None,
     structure: str = "single-package",
     extra: tuple[str, ...] = (),
+    files: dict[str, str] | None = None,
+    expect_error: bool = False,
 ) -> Generated:
     """Generate a schema into a throwaway package.
 
     Args:
         schema: The xml schema source
         options: Extra ``<Output>`` child elements, e.g. ``<AllOptional>true</AllOptional>``
-        package: The output package name
+        package: The output package name, unique per call by default so that
+            one test's output is never mistaken for another's
         structure: The output structure style
         extra: Extra command line arguments
+        files: Extra schema files, by name, e.g. the other half of a pair
+            of schemas that import each other
+        expect_error: Keep the output of a generation that failed, which is
+            what upstream does when it cannot import what it just wrote
 
     Returns:
         The generated package accessor.
     """
+    package = package or f"models{next(_counter)}"
     root = Path(tempfile.mkdtemp(prefix="docx4j-xsdata-fork-"))
     root.joinpath("sample.xsd").write_text(schema)
+    for name, source in (files or {}).items():
+        root.joinpath(name).write_text(source)
     root.joinpath(".xsdata.xml").write_text(
         CONFIG.format(package=package, structure=structure, options=options)
     )
@@ -122,7 +135,7 @@ def generate(
         result = runner.invoke(
             cli, ["generate", "sample.xsd", "-c", ".xsdata.xml", *extra]
         )
-        if result.exception:
+        if result.exception and not expect_error:
             raise result.exception
     finally:
         os.chdir(cwd)

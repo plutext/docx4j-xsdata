@@ -18,22 +18,36 @@ class DependenciesResolver:
 
     Args:
         registry: The full class qname-module map.
+        defer_imports: docx4j fork: split the imports into the ones the
+            module needs while its classes are being created and the ones
+            it only needs afterwards.
 
     Attributes:
         aliases: The generated aliases dictionary
         imports: The list of generated imports
         class_list: The topo-sorted list of class qnames
         class_map: A qname-class map
+        deferred: The qnames of the imports that can wait
 
     """
 
-    __slots__ = "aliases", "class_list", "class_map", "imports", "registry"
+    __slots__ = (
+        "aliases",
+        "class_list",
+        "class_map",
+        "defer_imports",
+        "deferred",
+        "imports",
+        "registry",
+    )
 
-    def __init__(self, registry: dict[str, str]):
+    def __init__(self, registry: dict[str, str], defer_imports: bool = False):
         """Initialize the resolver."""
         self.registry = registry
+        self.defer_imports = defer_imports
         self.aliases: dict[str, str] = {}
         self.imports: list[Import] = []
+        self.deferred: set[str] = set()
         self.class_list: list[str] = []
         self.class_map: dict[str, Class] = {}
 
@@ -47,13 +61,45 @@ class DependenciesResolver:
         """
         self.imports.clear()
         self.aliases.clear()
+        self.deferred.clear()
         self.class_map = self.create_class_map(classes)
         self.class_list = self.create_class_list(classes)
         self.resolve_imports()
 
     def sorted_imports(self) -> list[Import]:
-        """Return a new sorted by name list of import instances."""
-        return sorted(self.imports, key=lambda x: x.name)
+        """Return a new sorted by name list of import instances.
+
+        With deferred imports enabled, only the ones the module needs
+        while its own classes are being created.
+        """
+        return sorted(
+            (imp for imp in self.imports if imp.qname not in self.deferred),
+            key=lambda x: x.name,
+        )
+
+    def eager_modules(self) -> set[str]:
+        """Return the modules this module must be imported after."""
+        return {imp.source for imp in self.imports if imp.qname not in self.deferred}
+
+    def deferred_modules(self) -> set[str]:
+        """Return the modules this module imports below its classes."""
+        return {imp.source for imp in self.imports if imp.qname in self.deferred}
+
+    def sorted_deferred_imports(self) -> list[Import]:
+        """Return the imports that belong at the bottom of the module.
+
+        docx4j fork, CR-001 section 6.1: one package per namespace means
+        modules that import each other, because WML embeds DML and DML
+        embeds WML through `a:graphicData`. Postponed annotations make the
+        type hints strings already, so the only names a module really needs
+        while its classes are being created are its base classes and the
+        values it puts in `default=`; everything else can be imported after
+        the classes exist, which breaks the cycle.
+        """
+        return sorted(
+            (imp for imp in self.imports if imp.qname in self.deferred),
+            key=lambda x: x.name,
+        )
 
     def sorted_classes(self) -> list[Class]:
         """Apply aliases and return the sorted the generated class list."""
@@ -89,9 +135,16 @@ class DependenciesResolver:
 
     def resolve_imports(self) -> None:
         """Build the list of class imports and set aliases if necessary."""
+        imported = self.import_classes()
+        if self.defer_imports:
+            eager: set[str] = set()
+            for obj in self.class_map.values():
+                self.collect_eager_dependencies(obj, eager)
+            self.deferred = {qname for qname in imported if qname not in eager}
+
         self.imports = [
             Import(qname=qname, source=self.get_class_module(qname))
-            for qname in self.import_classes()
+            for qname in imported
         ]
         protected = {obj.slug for obj in self.class_map.values()}
         self.resolve_conflicts(self.imports, protected)
@@ -129,6 +182,35 @@ class DependenciesResolver:
                 add = "_".join(part for part in parts if part in diff)
                 cur.alias = f"{add}:{cur.name}"
 
+    @classmethod
+    def collect_eager_dependencies(cls, target: Class, result: set[str]) -> None:
+        """Collect the qnames the target class needs at class creation time.
+
+        Which are:
+            - its base classes, and the base classes of its inner classes
+            - anything a field default value refers to, e.g. an enum member
+            - every type of an enumeration or a service class, their
+              members are rendered as class references
+
+        Args:
+            target: The class instance to inspect
+            result: The set of qnames to update
+        """
+        for ext in target.extensions:
+            result.add(ext.type.qname)
+
+        constants = target.is_enumeration or target.is_service
+        for attr in target.attrs:
+            if constants or attr.default is not None:
+                result.update(tp.qname for tp in attr.user_types)
+
+            for choice in attr.choices:
+                if choice.default is not None:
+                    result.update(tp.qname for tp in choice.user_types)
+
+        for inner in target.inner:
+            cls.collect_eager_dependencies(inner, result)
+
     def get_class_module(self, qname: str) -> str:
         """Return the module for the given qualified class name.
 
@@ -144,7 +226,34 @@ class DependenciesResolver:
 
     def import_classes(self) -> list[str]:
         """Return a list of class qnames that need to be imported."""
-        return [qname for qname in self.class_list if qname not in self.class_map]
+        result = [qname for qname in self.class_list if qname not in self.class_map]
+        if self.defer_imports:
+            result.extend(self.circular_imports(result))
+        return result
+
+    def circular_imports(self, imported: list[str]) -> list[str]:
+        """Return the circular references that live in another module.
+
+        docx4j fork. A circular reference is generated as a quoted forward
+        reference and is deliberately left out of the topological sort, which
+        is right while the two classes share a module. Under a per namespace
+        layout they often do not, and then the name still has to come from
+        somewhere.
+        """
+        if not self.class_map:
+            return []
+
+        module = next(iter(self.class_map.values())).target_module
+        seen = set(imported) | set(self.class_map)
+        result = []
+        for obj in self.class_map.values():
+            for qname in obj.dependencies(allow_circular=True):
+                if qname in seen or self.registry.get(qname) in (None, module):
+                    continue
+                seen.add(qname)
+                result.append(qname)
+
+        return result
 
     @staticmethod
     def create_class_list(classes: list[Class]) -> list[str]:

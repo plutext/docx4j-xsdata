@@ -1,4 +1,14 @@
+{%- if deferred_imports -%}
+from importlib import import_module
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+{%- filter indent(4, first=True) %}
 {% include "imports.jinja2" %}
+{%- endfilter %}
+{% else %}
+{%- include "imports.jinja2" %}
+{% endif -%}
 __all__ = [
 {%- for source, items in imports|groupby("source") -%}
 {%- for item in items %}
@@ -12,3 +22,33 @@ __all__ = [
 {%- endfor %}
 {%- endfor %}
 ]
+{%- if deferred_imports %}
+
+# The re-exports above are resolved on first use, so that importing this
+# package never forces a module of it to be imported before the modules it
+# depends on.
+__lazy_imports__ = {
+{%- for source, items in imports|groupby("source") -%}
+{%- for item in items %}
+    "
+    {%- if item.alias %}
+        {{- item.alias|class_name -}}
+    {% else %}
+        {{- item.name|class_name -}}
+    {% endif -%}
+    ": ("{{ source }}", "{{ item.name|class_name }}"),
+{%- endfor %}
+{%- endfor %}
+}
+
+
+def __getattr__(name: str) -> object:
+    """Import a re-exported class on first use."""
+    target = __lazy_imports__.get(name)
+    if target is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+    value = getattr(import_module(target[0]), target[1])
+    globals()[name] = value
+    return value
+{%- endif %}
