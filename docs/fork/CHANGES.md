@@ -448,3 +448,119 @@ documented, with doctests, in `docs/data_binding/basics.md`, and `<ClassNames>` 
 `ruff check` outside `tests/fixtures` and `tools`: clean, and `ruff format --check`
 reports the same files as before stage 3.
 
+## Stage 4 — Phase B integration: what the real name table did (done)
+
+CR-001 Phase B, integration. Two commits, both consequences of running the options
+of stages 2 and 3 over the whole of docx4j's WML schema closure rather than over a
+test schema. Neither adds an option; both change what an existing one does, and both
+still default to upstream behaviour (an unset `<ClassNames>` and an unchanged
+`DeferredImports` are exactly upstream).
+
+### 8. `<ClassNames>`: scoped entries, and no element may take a type's name
+
+Feeding the whole table in made the output **worse**: 333 numerically suffixed class
+names against 82 with no table at all, `Text1` for `CT_Text` with `Text2`..`Text7`
+spread over the elements that share it, and `BooleanDefaultTrue1`, `Ctmarkup1`,
+`CttrackChange1` where the point of the exercise was `BooleanDefaultTrue`, `CTMarkup`,
+`CTTrackChange`.
+
+The cause is structural, not a bug in the table. **JAXB has one class where the
+generator has several.** docx4j's `ObjectFactory` maps 27 element names onto
+`BooleanDefaultTrue` and three onto `Text`, because those are `JAXBElement` wrappers
+over one payload class — which the `types` section already names. The generator instead
+invents an intermediate class per element name of an ambiguous compound field
+(`DisambiguateChoices`, where `w:t`, `w:instrText` and `w:delInstrText` all have the
+type `CT_Text`), and those classes carry no xml name at all: the element name lives in
+the `choices` metadata of the field that holds them.
+
+Two rules now:
+
+* **An intermediate choice class is renamed only by a scoped entry.** `Class.scope_name`
+  remembers the qualified name of the class whose compound field made the generator
+  invent this one, and an `elements` key may carry that scope, `t@CT_R` — the analogue
+  of JAXB's `@XmlElementDecl(scope=...)`. The scope is read in the namespace of the file
+  it is written in, because one element name can be a choice of two same-named types in
+  two namespaces (wml's `w:t` inside wml's `CT_R` and inside OMML's). An unscoped entry
+  never reaches an intermediate class. The scope is the class name as the generator
+  holds it at that point, which is the schema type name unless the type has been reduced
+  into the single global element that uses it, in which case it is the element name
+  (`CT_R` is `r`).
+* **An element entry never takes a name another class owns.** The `types` section is
+  applied first, so the class the schema declares as a type keeps the bare name, and an
+  element entry that wants a name already spoken for is dropped and reported:
+
+  ```
+  ClassNames: element t is left alone, `Text` belongs to CT_Body
+  ```
+
+Two `types` entries that want the same name still take numeric suffixes as before, and
+a suffixed name now keeps the table's casing: `CTTrackChange1`, not `CttrackChange1`.
+
+Result on docx4j-python's `schemas/wml/wml.xsd`: **85 suffixed names, against 333 for
+the naive application and 82 with no table at all** — the table costs three, all of the
+shape "a global element class already has the docx4j name, so the type class behind it
+takes `Body1`, `Graphic1`, `Pic1`, `Anchor1`, `Inline1`". With the project's three
+scoped entries for the run's text classes it is 79, two of which (`CT_Integer2`, `CT_Integer255`)
+are schema names that end in a digit rather than suffixes at all. `Text`, `PPr`, `RPr`, `P`, `R`,
+`Body`, `Tbl`, `Tr`, `Tc`, `Styles`, `Style`, `CTSettings`, `BooleanDefaultTrue`,
+`CTMarkup`, `CTTrackChange`, `RunIns`, `RunDel`, `SdtBlock` and `JcEnumeration` are all
+bare.
+
+### 9. `DeferredImports`: the import order manifest is byte stable
+
+The manifest appended to the output root package came out in a different order on every
+run, because the walk that produces it iterated `set(edges)`, whose order depends on the
+process's string hash seed, and took the neighbours out of a `set` too. Every one of
+those orders is correct — being *an* order in which no module is entered from another
+module's top imports is the only property the manifest has to have — but the manifest is
+a file that gets committed, and a regeneration that rewrites it for no reason buries the
+diffs that matter.
+
+Both walks are sorted now: `strongly_connected_components` visits its vertices in sorted
+order, which also makes `DesignateClassPackages` reproducible, and `render_import_order`
+sorts the neighbour lists it hands it. This one is an upstream candidate in its own
+right; it is docx4j-python `docs/UPSTREAM.md` report 6.
+
+`codegen/generate.sh --check` in docx4j-python regenerates the 57 modules twice and
+diffs: byte identical.
+
+### Verified against the real project
+
+`docx4j-python`, `schemas/wml/wml.xsd`, all seven options, 50 parts from 12 documents:
+
+| | stage 2 | stage 3 + integration |
+|---|---:|---:|
+| parts parsed and serialised | 50 | **50** |
+| canonically identical | 19 | **50** |
+| element / order / text differences | 0 | **0** |
+| `attribute-added` / `attribute-dropped` | 0 / 10 | **0 / 0** |
+| `attribute-value` | 3,034 | **0** |
+| boolean respellings (not a difference) | — | 34 |
+| skipped elements and attributes | not measured | **0** |
+
+The 3,034 were all the `1`/`true` spelling and are gone with
+`SerializerConfig(bool_format="numeric")`; the 34 that remain are one `styles.xml`
+written with `true`/`false` that is now rewritten as `1`/`0`, the same substitution in
+the other direction. With `bool_format="words"` the same corpus gives 3,034 of them, so
+numeric is 89 times closer to what the corpus actually holds.
+
+### Test status
+
+`pytest --doctest-glob="docs/*.md"` on CPython 3.14.6:
+
+| | result |
+|---|---|
+| upstream `v26.2` | 1103 passed, 17 skipped |
+| the fork after the rename | 1103 passed, 17 skipped |
+| the fork after stage 2 | 1122 passed, 17 skipped |
+| the fork after stage 3 | 1159 passed, 17 skipped |
+| the fork after stage 4 | 1166 passed, 17 skipped |
+
+Seven more tests: three in `tests/fork/test_class_names.py` for the two new rules and
+the scope (and three existing ones rewritten to the new behaviour), and four in
+`tests/fork/test_import_order_determinism.py` — the component walk and the manifest are
+unchanged under eight shufflings of the input dicts, the manifest is still a dependency
+order for every top import, and two generations of one schema are byte identical. No
+upstream test was edited in this stage either.
+
+`ruff check` and `ruff format --check` outside `tests/fixtures` and `tools`: clean.
