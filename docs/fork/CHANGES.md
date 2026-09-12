@@ -106,33 +106,184 @@ is not a 26.2 option (keyword-only is unconditional); the generator shells out t
 `ruff` by bare name and fails with `FileNotFoundError` when the virtual environment's
 `bin` is not on `PATH`.
 
-## Stage 2 — the generator changes (not yet done)
+## Stage 2 — the generator changes (done)
 
-CR-001 section 3 and phase A of section 10. All four are generator-side
-(`docx4j_xsdata.codegen`, `docx4j_xsdata.formats.dataclass.filters`) and all are
-configuration flags that **default to upstream behaviour**, so the fork can still
-generate ordinary bindings:
+CR-001 section 3 and phase A of section 10. Four options, one commit each, all of
+them project configuration settings in `<Output>` that **default to upstream
+behaviour**: `docx4j-xsdata` with an upstream config generates exactly what
+upstream generates. None of them has a CLI flag, deliberately — the command line
+help is identical to upstream's.
 
-1. **Optional everything.** Every element and attribute generated as
-   `Optional[...] = None`, so schema-required members are not mandatory constructor
-   arguments. Real Word documents are schema-invalid and must still load.
-2. **Defaults on read.** `default=None` in the dataclass with the schema default kept
-   in the field metadata, so the serialiser neither invents 5,516 absent attributes
-   nor drops 773 present ones.
-3. **List factory.** Emit `default_factory=ChildList` rather than `default_factory=list`
-   for every list field, so appending a child sets its parent pointer.
-4. **Circular-import fix** for `--structure-style namespaces`: postponed annotations
-   and `TYPE_CHECKING` imports so per-namespace packages with cross-namespace cycles
-   import. This one is an upstream candidate (report 1 above).
+| Option | Values | Default | What it does |
+|---|---|---|---|
+| `<AllOptional>` | `true` / `false` | `false` | every element and attribute field is `None \| T` with `default=None` |
+| `<SchemaDefaults>` | `field` / `metadata` | `field` | where a schema declared default lives |
+| `<ListFactory>` | a dotted path | unset | the `default_factory` of every list field |
+| `<DeferredImports>` | `true` / `false` | `false` | make `--structure-style namespaces` output importable |
 
-Where that work lands:
+The docx4j-python configuration, all four together:
 
-* field generation and the emitted `field(...)` call: `docx4j_xsdata/formats/dataclass/filters.py`
-* the generator config model (where new flags are declared, and the `.xsdata.xml`
-  schema they serialise into): `docx4j_xsdata/models/config.py`
-* import collection and ordering for a generated module:
-  `docx4j_xsdata/codegen/resolver.py` and `docx4j_xsdata/formats/dataclass/filters.py`
-* module/package layout decisions: `docx4j_xsdata/codegen/handlers/designate_class_packages.py`
-* the jinja templates: `docx4j_xsdata/formats/dataclass/templates/` (note that these
-  contain no `xsdata` literal of their own — the imports emitted into generated code
-  are built in `filters.py`)
+```xml
+<Output maxLineLength="99">
+  <Package>docx4j_py.generated</Package>
+  <Format slots="true">dataclasses</Format>
+  <Structure>namespaces</Structure>
+  <CompoundFields defaultName="content" useSubstitutionGroups="true">true</CompoundFields>
+  <AllOptional>true</AllOptional>
+  <SchemaDefaults>metadata</SchemaDefaults>
+  <ListFactory>docx4j_py.child.ChildList</ListFactory>
+  <DeferredImports>true</DeferredImports>
+</Output>
+```
+
+Each option is documented in `docs/codegen/config.md` alongside the upstream ones.
+
+### 1. `<AllOptional>true</AllOptional>`
+
+Every element and attribute field becomes `None | T` with `default=None`, whatever
+the schema's `minOccurs` or `use="required"` says. REPORT.md 7.3: `invoice2013.docx`
+has a `w:tbl` with no `w:tblGrid`, which Word and JAXB both accept and xsdata turns
+into `TypeError: CtTbl.__init__() missing 1 required keyword-only argument`.
+
+Not affected: list, token list and `xs:anyAttribute` fields keep their factory;
+`fixed` and prohibited attrs have no constructor argument to relax; text/value,
+wildcard and compound fields only become optional when they would otherwise be
+required with no default. A schema declared default is left in place — that is
+`<SchemaDefaults>`'s job.
+
+### 2. `<SchemaDefaults>metadata</SchemaDefaults>`
+
+`field` is upstream: the schema default becomes the dataclass field default.
+`metadata` generates `default=None` and carries the default in the field metadata:
+
+```python
+locked: None | bool = field(
+    default=None,
+    metadata={"type": "Attribute", "schema_default": "true"},
+)
+```
+
+REPORT.md 7.1: with the default in the field, the serializer invents 5,516 absent
+attributes over 50 real Word parts; with `ignore_default_attributes=True` it instead
+drops 773 that were present and happen to equal the default. Neither is right, and
+no configuration of the *serializer* can be: the field has to start out `None`.
+
+Nothing is lost. The runtime exposes the value as **`XmlVar.schema_default`**, a new
+slot fed from the metadata by `XmlVarBuilder`, so a resolver can still ask what the
+schema says an absent value means. Enumeration defaults keep the generated member
+(`"schema_default": STOnOff.TRUE`) rather than a string, so the reference to the enum
+class survives. The parser is untouched and never fills the field. `fixed` value
+attrs are excluded: they are `init=False`, so the field default is the only place the
+value lives.
+
+### 3. `<ListFactory>docx4j_py.child.ChildList</ListFactory>`
+
+A dotted path to a list subclass. Every list field is emitted with
+`default_factory=<Class>` and the class is imported into each generated module that
+uses it (through the filters' `import_patterns`, the same mechanism `<Extensions>`
+uses; the search pattern is the emitted `default_factory=<Class>` text, so a module
+with no list field does not import it). Unset means upstream's `default_factory=list`.
+
+This is the xsdata equivalent of docx4j's single JAXB customization,
+`<jaxb:globalBindings collectionType="org.docx4j.list.ArrayListDocx4j"/>`: a list that
+sets the parent pointer of what is appended to it (REPORT.md 7.4, CR-001 section 5).
+Token lists and `xs:anyAttribute` maps keep the builtin `list` — they hold strings.
+A `frozen` output keeps tuples.
+
+### 4. `<DeferredImports>true</DeferredImports>`
+
+Makes the output of `--structure-style namespaces` importable (REPORT.md 3.1,
+deferred upstream report 1). One package per namespace is what CR-001 section 6.1
+wants, but WML, DML, w14 and OMML reference each other in both directions, so one
+module per namespace is an import cycle by construction.
+
+**The approach.** Postponed annotations are already emitted, so type hints are
+strings resolved by `XmlContext` long after import time. What a module needs while
+its classes are being created is a short list — base classes, whatever a field
+`default=` refers to, and the types of an enumeration or service class — and that
+list is acyclic in ECMA-376. Everything else moves *below* the classes. The one
+runtime reference that was not a string, the `choices` metadata of a compound field
+(`"type": DelText`), becomes `ForwardRef("DelText")`, which the runtime already
+resolves and which needs the name only when the binding metadata is built.
+
+Two consequences come with it:
+
+* **Package `__init__` re-exports become lazy.** A package that imports every class
+  of every module in it is atomic: touching one module drags in its siblings, in the
+  wrong order. With the option on the re-exports go through a module `__getattr__`,
+  so `from pkg import Cls` still works and importing the package costs nothing.
+* **The output root package gets an import order manifest.** A module entered from
+  another module's *top* import is the one case a deferred import can still fail: it
+  is asked for a class while it is still running its own top imports. The manifest
+  rules that out — the strongly connected components of the module graph in
+  dependency order, each sorted by its top imports. In that order every top import is
+  already in `sys.modules`. Python initializes a parent package before any of its
+  submodules, so the manifest runs whatever the entry point is.
+
+Alternatives rejected: qualifying every deferred reference with a module alias
+(`wordml.CtLigatures` in every annotation) is equally robust and needs no ordering,
+but costs the whole output's readability; a per-module lazy `__getattr__` cannot work
+because `typing.get_type_hints` resolves annotations against the module's real
+`__dict__`, which does not consult `__getattr__`.
+
+One further fix was needed. A circular reference is generated as a quoted forward
+reference and left out of the topological sort, which is right while both classes
+share a module; under a per namespace layout they often do not, and the name was
+never imported (`NameError: name 'CtRuby' is not defined`, from the OMML module).
+The resolver now adds cross module circular references to the import list.
+
+### Verified against the real project
+
+`schemas/wml/wml.xsd` in docx4j-python, `--structure-style namespaces`, into a scratch
+package:
+
+| | |
+|---|---|
+| modules generated | 103, all of them import, from any entry point |
+| model import time | 0.72 s |
+| round trip, config B equivalent | **18/50 parts identical**, `attribute-value` 2,281, `attribute-dropped` 773 — the same numbers as REPORT.md config B |
+| element-dropped / element-added / child-order / text | **0**, unchanged |
+| with `<AllOptional>` and `<SchemaDefaults>metadata</SchemaDefaults>` as well | **19/50 identical**, `attribute-added` **0**, `attribute-dropped` **10**, `attribute-value` 3,034 |
+
+In that last run the serializer is called *without* `ignore_default_attributes` and the
+parser *without* the tolerant `class_factory`: `invoice2013.docx` parses on its own, and
+the 773 wrongly dropped attributes and the 5,516 invented ones are both gone. The 10
+remaining dropped attributes are all `mc:Ignorable` on `/w:fonts`, which is the schema
+patch in CR-001 section 7 and belongs to Phase B. `attribute-value` is back to 3,034
+because the 773 attributes that config B silently dropped are now written, and they are
+the `1` against `true` boolean spelling of REPORT.md 7.6.
+
+Class naming also improves without any name table: numerically suffixed duplicate class
+names fall from **213** under `clusters` to **10** under `namespaces`, and `CtText3`
+is gone — `CtText` is WML's `CT_Text` in the WML module, OMML's in the OMML module.
+`w:t` inside `w:r` is still the nested `R.T` (`UnnestClasses` is off).
+
+### Two more upstream bugs found
+
+Both are `--structure-style namespaces` only, and both belong on the deferred report
+list above:
+
+4. A namespace URI that is a prefix of another produces a module and a package with
+   the same name in the same directory (`.../pkg_2018/animation.py` next to
+   `.../pkg_2018/animation/`); the package shadows the module and its classes are
+   unreachable. Worked around in the scratch run with a module name substitution.
+5. A cross module circular reference is never imported (fixed here, see above).
+
+### Test status
+
+`pytest --doctest-glob="docs/*.md"` on CPython 3.14.6:
+
+| | result |
+|---|---|
+| upstream `v26.2` | 1103 passed, 17 skipped |
+| the fork after the rename | 1103 passed, 17 skipped |
+| the fork after stage 2 | 1122 passed, 17 skipped |
+
+The 19 new tests are `tests/fork/`, one module per option. Each generates the same
+schema with the option off and on and compares the emitted source, and then imports the
+result and parses and serializes with it. Two upstream tests were edited: the expected
+`.xsdata.xml` in `tests/models/test_config.py`, which now carries the three new boolean
+and enum elements (`<ListFactory>` is unset and therefore not written).
+
+`ruff check` outside `tests/fixtures` and `tools`: clean, as before stage 2.
+
