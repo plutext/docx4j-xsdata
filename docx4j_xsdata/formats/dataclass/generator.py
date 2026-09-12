@@ -155,7 +155,10 @@ class DataclassGenerator(AbstractGenerator):
 
         That order exists whenever the top import graph is acyclic, and it is
         this one: the strongly connected components of the whole graph in
-        dependency order, each of them sorted by its top imports. Python
+        dependency order, each of them sorted by its top imports. Any order
+        with that property is correct, so the one that is picked is settled
+        by sorting, both here and in the component walk, and two generations
+        of one schema produce byte identical output. Python
         initializes a parent package before any of its submodules, so the
         root package is the one place the order can be fixed for every entry
         point into the package.
@@ -174,8 +177,10 @@ class DataclassGenerator(AbstractGenerator):
             scope = within if within is not None else eager.keys()
             return {dep for dep in deps if dep in scope}
 
+        # sorted: the walk below visits the neighbours in this order, and the
+        # manifest is a file that gets diffed between regenerations.
         graph = {
-            module: list(prune(deps | deferred.get(module, set())) - {module})
+            module: sorted(prune(deps | deferred.get(module, set())) - {module})
             for module, deps in eager.items()
         }
 

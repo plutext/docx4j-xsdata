@@ -7,6 +7,13 @@ def strongly_connected_components(edges: dict[str, list[str]]) -> Iterator[set[s
     From https://code.activestate.com/recipes/578507/ From
     https://github.com/python/mypy/blob/master/mypy/build.py
 
+    docx4j fork: the vertices are visited in sorted order, so that two runs
+    over the same graph yield the same components in the same order. The
+    original walks `set(edges)`, whose iteration order depends on the
+    process's string hash seed, and any of the orders it produces is a
+    correct answer -- which is exactly why the difference is invisible until
+    something writes the result to a file and the file is diffed.
+
     Args:
         edges: A vertex-edges map
 
@@ -37,6 +44,6 @@ def strongly_connected_components(edges: dict[str, list[str]]) -> Iterator[set[s
             identified.update(scc)
             yield scc
 
-    for vertex in set(edges):
+    for vertex in sorted(edges):
         if vertex not in index:
             yield from dfs(vertex)
