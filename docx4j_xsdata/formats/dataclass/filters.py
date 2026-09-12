@@ -30,6 +30,7 @@ class Filters:
     FACTORY_KEY = "default_factory"
 
     __slots__ = (
+        "all_optional",
         "class_case",
         "class_safe_prefix",
         "constant_case",
@@ -94,6 +95,7 @@ class Filters:
         self.max_line_length: int = config.output.max_line_length
         self.generic_collections: bool = config.output.generic_collections
         self.relative_imports: bool = config.output.relative_imports
+        self.all_optional: bool = config.output.all_optional
         self.format = config.output.format
 
         # Build things
@@ -449,7 +451,7 @@ class Filters:
             **restrictions,
         }
 
-        if not attr.is_attribute or attr.default is None:
+        if not attr.is_attribute or attr.default is None or self.force_optional(attr):
             metadata.pop("required", None)
 
         if self.docstring_style == DocstringStyle.ACCESSIBLE and attr.help:
@@ -735,6 +737,36 @@ class Filters:
             return text[:split_pos], text[split_pos:].strip()
         return text, ""
 
+    def force_optional(self, attr: Attr) -> bool:
+        """Return whether the fork's all-optional option applies to this attr.
+
+        docx4j fork, CR-001 section 3: real Word documents omit elements and
+        attributes the schema marks required, e.g. a ``w:tbl`` without a
+        ``w:tblGrid``. With ``<Output><AllOptional>true</AllOptional></Output>``
+        no element or attribute is ever a mandatory keyword argument.
+
+        Excluded, because they have no ``__init__`` parameter to relax:
+        prohibited attrs, fixed value attrs and anything with a factory
+        (lists, token lists, ``xs:anyAttribute`` maps).
+
+        Text/value, wildcard and compound fields only become optional when
+        they would otherwise be required without a default.
+
+        Args:
+            attr: The attr instance
+
+        Returns:
+            Whether the attr must be generated as ``None | T`` with no
+            mandatory constructor argument.
+        """
+        if not self.all_optional or attr.is_prohibited or attr.fixed or attr.is_factory:
+            return False
+
+        if attr.is_element or attr.is_attribute:
+            return True
+
+        return attr.default is None and not attr.is_optional
+
     def field_default_value(self, attr: Attr, ns_map: dict | None = None) -> Any:
         """Generate the field default value/factory for the given attribute."""
         if attr.is_list or (attr.is_tokens and not attr.default):
@@ -742,7 +774,7 @@ class Filters:
         if attr.is_dict:
             return "dict"
         if attr.default is None:
-            return None if attr.is_optional else False
+            return None if attr.is_optional or self.force_optional(attr) else False
         if not isinstance(attr.default, str):
             return literal_value(attr.default)
         if attr.default.startswith("@enum@"):
@@ -821,7 +853,11 @@ class Filters:
 
             return "dict[str, str]"
 
-        if attr.is_nillable or (attr.default is None and attr.is_optional):
+        if (
+            attr.is_nillable
+            or (attr.default is None and attr.is_optional)
+            or self.force_optional(attr)
+        ):
             return f"None | {result}"
 
         return result
@@ -849,7 +885,7 @@ class Filters:
         if attr.is_list:
             return iterable_fmt.format(result)
 
-        if attr.is_optional:
+        if attr.is_optional or self.force_optional(attr):
             return f"None | {result}"
 
         return result

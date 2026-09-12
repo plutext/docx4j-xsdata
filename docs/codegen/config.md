@@ -243,6 +243,36 @@ See: https://xsdata.readthedocs.io/
 
 **CLI Option:** `--include-header / --no-include-header`
 
+### AllOptional
+
+!!! Info "docx4j fork option, it does not exist upstream."
+
+Generate every element and attribute field as `None | T` with `default=None`, whatever
+the schema's `minOccurs` or `use="required"` says, so that no schema member is a
+mandatory keyword argument.
+
+Real world documents are not always schema valid: a Word `w:tbl` may have no
+`w:tblGrid`, and a binding that refuses to build the object cannot load the document at
+all.
+
+```xml
+<Output>
+  <AllOptional>true</AllOptional>
+</Output>
+```
+
+Not affected: list, token list and `xs:anyAttribute` fields, which keep their default
+factory; `fixed` value and prohibited attrs, which have no constructor argument to
+relax; text/value, wildcard and compound fields, which only become optional when they
+would otherwise be required with no default.
+
+A schema declared default value is kept, see [SchemaDefaults](#schemadefaults) for
+moving it out of the field.
+
+**Default Value:** `False`
+
+**CLI Option:** none, project configuration only
+
 ## Convention Settings
 
 Apply different naming convention per identifier.

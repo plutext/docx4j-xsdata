@@ -221,6 +221,9 @@ class GeneratorOutput:
         unnest_classes: Move inner classes to upper level
         ignore_patterns: Ignore pattern restrictions
         include_header: Include a header with codegen information in the output
+        all_optional: docx4j fork: generate every element/attribute field as
+            `None | T` with `default=None`, whatever the schema's minOccurs
+            or use="required" says.
     """
 
     package: str = field(default="generated", metadata={"type": "Element"})
@@ -244,6 +247,9 @@ class GeneratorOutput:
     unnest_classes: bool = field(default=False, metadata={"type": "Element"})
     ignore_patterns: bool = field(default=False, metadata={"type": "Element"})
     include_header: bool = field(default=False, metadata={"type": "Element"})
+    all_optional: bool = field(
+        default=False, metadata={"type": "Element", "cli": False}
+    )
 
     def __post_init__(self):
         """Post initialization method."""

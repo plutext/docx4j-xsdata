@@ -39,6 +39,7 @@ class GeneratorConfigTests(TestCase):
             "    <UnnestClasses>false</UnnestClasses>\n"
             "    <IgnorePatterns>false</IgnorePatterns>\n"
             "    <IncludeHeader>false</IncludeHeader>\n"
+            "    <AllOptional>false</AllOptional>\n"
             "  </Output>\n"
             "  <Conventions>\n"
             '    <ClassName case="pascalCase" safePrefix="type"/>\n'
@@ -100,6 +101,7 @@ class GeneratorConfigTests(TestCase):
             "    <UnnestClasses>false</UnnestClasses>\n"
             "    <IgnorePatterns>false</IgnorePatterns>\n"
             "    <IncludeHeader>false</IncludeHeader>\n"
+            "    <AllOptional>false</AllOptional>\n"
             "  </Output>\n"
             "  <Conventions>\n"
             '    <ClassName case="pascalCase" safePrefix="type"/>\n'
