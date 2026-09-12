@@ -2,6 +2,7 @@ from collections.abc import Callable, Iterator
 
 from docx4j_xsdata.codegen.handlers import (
     AddAttributeSubstitutions,
+    ApplyClassNames,
     CalculateAttributePaths,
     CreateCompoundFields,
     CreateWrapperFields,
@@ -226,6 +227,10 @@ class ClassContainer(ContainerInterface):
         """Designate the final class names, packages and modules."""
         designators = [
             MergeDuplicateClasses(self),
+            # docx4j fork: the explicit name table runs before the
+            # duplicate names are resolved, so that a name it makes
+            # ambiguous gets the same numeric suffix treatment.
+            ApplyClassNames(self),
             RenameDuplicateClasses(self),
             ValidateReferences(self),
             DesignateClassPackages(self),

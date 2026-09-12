@@ -9,6 +9,7 @@ from re import Pattern
 from typing import Any
 
 from docx4j_xsdata import __version__
+from docx4j_xsdata.codegen.class_names import ClassNames
 from docx4j_xsdata.codegen.exceptions import CodegenError, CodegenWarning
 from docx4j_xsdata.formats.dataclass.context import XmlContext
 from docx4j_xsdata.formats.dataclass.parsers import XmlParser
@@ -248,6 +249,12 @@ class GeneratorOutput:
         deferred_imports: docx4j fork: import the classes that are only
             needed after the module's own classes exist at the bottom of
             the module, so that mutually dependent modules can be imported.
+        class_names: docx4j fork: a directory, relative to this config
+            file, with one json file per namespace mapping schema type
+            and element names to the class names to emit, e.g.
+            `codegen/names`. Unset means the naming conventions decide.
+        class_name_table: docx4j fork: the loaded class_names directory,
+            not a configuration setting, see load_class_names.
     """
 
     package: str = field(default="generated", metadata={"type": "Element"})
@@ -284,10 +291,32 @@ class GeneratorOutput:
     deferred_imports: bool = field(
         default=False, metadata={"type": "Element", "cli": False}
     )
+    class_names: str | None = field(
+        default=None, metadata={"type": "Element", "cli": False}
+    )
+    class_name_table: ClassNames | None = field(
+        default=None,
+        compare=False,
+        repr=False,
+        metadata={"type": "Ignore", "cli": False},
+    )
 
     def __post_init__(self):
         """Post initialization method."""
         self.validate()
+
+    def load_class_names(self, base: Path) -> None:
+        """docx4j fork: load the class names directory, if there is one.
+
+        Args:
+            base: The directory the configured path is relative to,
+                the directory of the config file
+        """
+        if not self.class_names:
+            self.class_name_table = None
+            return
+
+        self.class_name_table = ClassNames.load(base.joinpath(self.class_names))
 
     def validate(self) -> None:
         """Reset configuration conflicts."""
@@ -616,6 +645,7 @@ class GeneratorConfig:
         )
         cfg = parser.from_path(path, cls)
         cfg.version = __version__
+        cfg.output.load_class_names(path.parent)
         return cfg
 
     @classmethod

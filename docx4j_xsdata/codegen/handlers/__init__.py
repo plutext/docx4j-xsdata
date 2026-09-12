@@ -1,4 +1,5 @@
 from .add_attribute_substitutions import AddAttributeSubstitutions
+from .apply_class_names import ApplyClassNames
 from .calculate_attribute_paths import CalculateAttributePaths
 from .create_compound_fields import CreateCompoundFields
 from .create_wrapper_fields import CreateWrapperFields
@@ -26,6 +27,7 @@ from .validate_references import ValidateReferences
 
 __all__ = [
     "AddAttributeSubstitutions",
+    "ApplyClassNames",
     "CalculateAttributePaths",
     "CreateCompoundFields",
     "CreateWrapperFields",

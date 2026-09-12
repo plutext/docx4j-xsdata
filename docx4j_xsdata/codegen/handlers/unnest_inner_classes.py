@@ -80,6 +80,9 @@ class UnnestInnerClasses(RelativeHandlerInterface):
         name_parts = [target.parent.name, target.name]
         new_qname = build_qname(target.target_namespace, "_".join(name_parts))
 
+        # docx4j fork: the class name table is keyed by the schema name,
+        # which the promotion is about to replace with Parent_Child.
+        target.source_name = target.source_name or target.name
         target.qname = new_qname
 
         assert target.parent is not None

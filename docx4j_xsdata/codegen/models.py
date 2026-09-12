@@ -506,6 +506,9 @@ class Class(CodegenModel):
         namespace: The class namespace
         help: The help text
         meta_name: The xml element name of the class
+        source_name: docx4j fork: the local name of the class as the
+            schema declared it, when the generator has renamed it, e.g.
+            an inner class promoted to a root class by UnnestClasses
         default: The default value
         fixed: Specifies whether the default value is fixed
         substitutions: The list of all the substitution groups this class belongs to
@@ -530,6 +533,7 @@ class Class(CodegenModel):
     namespace: str | None = field(default=None)
     help: str | None = field(default=None)
     meta_name: str | None = field(default=None)
+    source_name: str | None = field(default=None, compare=False)
     default: Any = field(default=None, compare=False)
     fixed: bool = field(default=False, compare=False)
     substitutions: list[str] = field(default_factory=list)

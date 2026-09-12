@@ -35,6 +35,7 @@ class Filters:
     __slots__ = (
         "all_optional",
         "class_case",
+        "class_names",
         "class_safe_prefix",
         "constant_case",
         "constant_safe_prefix",
@@ -86,6 +87,9 @@ class Filters:
                         f" {ext.func_name})",
                     ]
                 )
+
+        table = config.output.class_name_table
+        self.class_names: set[str] = table.names() if table else set()
 
         self.class_case: Callable = config.conventions.class_name.case
         self.field_case: Callable = config.conventions.field_name.case
@@ -184,6 +188,7 @@ class Filters:
 
         Steps:
             - Apply substitutions before naming conventions
+            - docx4j fork: stop if the explicit name table chose the name
             - Apply naming convention
             - Apply substitutions after naming conventions
 
@@ -194,6 +199,10 @@ class Filters:
             The final class name
         """
         name = self.apply_substitutions(name, ObjectType.CLASS)
+
+        if name in self.class_names:
+            return name
+
         name = self.safe_name(name, self.class_safe_prefix, self.class_case)
         return self.apply_substitutions(name, ObjectType.CLASS)
 

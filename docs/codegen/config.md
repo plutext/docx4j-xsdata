@@ -400,6 +400,70 @@ no such cycle in ECMA-376.
 
 **CLI Option:** none, project configuration only
 
+### ClassNames
+
+!!! Info "docx4j fork option, it does not exist upstream."
+
+A directory, relative to the configuration file, holding an explicit schema name to
+class name table: one json file per namespace. Unset, the default, means the
+[naming conventions](#convention-settings) decide every class name.
+
+```xml
+<Output>
+  <ClassNames>codegen/names</ClassNames>
+</Output>
+```
+
+```json
+{
+  "namespace": "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
+  "java_package": "org.docx4j.wml",
+  "types": { "CT_PPr": "PPr", "CT_P": "P", "CT_Settings": "CTSettings", "ST_Jc": "STJc" },
+  "elements": { "document": "Document", "ins": "RunIns", "t": "Text" }
+}
+```
+
+`Substitutions` are regular expressions, which cannot express a table of a thousand
+names such as docx4j's `org.docx4j.wml.ObjectFactory`. This can.
+
+* `types` maps the name of a `complexType` or `simpleType` in that namespace.
+* `elements` maps the name of an element in that namespace: a global element
+  (`document`), an element specific class the generator creates where one type serves
+  several element names in a compound field (`ins`), and the anonymous type declared
+  inside an element that `UnnestClasses` promotes to the top level (`t` inside `CT_R`,
+  the nested `R.T`, becomes `Text`). For a promoted type the promoted name in `types`
+  (`CT_R_t`) wins over the element name, which is the way out if an element and an
+  attribute of the same name both declare an anonymous type.
+* `java_package` is not used by the generator, it documents where the names come from.
+* Names the table does not mention keep the naming conventions.
+
+A name from the table is emitted **verbatim**: the table is applied before the case
+convention, not through it, so `CTSettings` stays `CTSettings` and does not become
+`Ctsettings`. Substitutions still apply before the table is consulted; they do not
+apply after it.
+
+The same element name may map to several classes, which is what happens when an element
+name is used in several scopes. They all get the name, and the ordinary duplicate class
+name handling then disambiguates them with numeric suffixes. Every such collision, with
+any class the table did not rename, is reported:
+
+```
+ClassNames: t is mapped to `Text`, which CT_Body already owns;
+the generator will add a numeric suffix
+```
+
+A class is never overwritten or merged because of the table. A mapped class keeps the
+xml name the schema gave it (`Meta.name`), so renaming a class never changes the
+document it reads or writes. An entry whose value is not a valid python class name is
+reported and ignored; a directory that does not exist is an error.
+
+The table only reaches the classes the generator emits at the top level: with
+`UnnestClasses` off, the inner classes keep the conventions.
+
+**Default Value:** unset
+
+**CLI Option:** none, project configuration only
+
 ## Convention Settings
 
 Apply different naming convention per identifier.

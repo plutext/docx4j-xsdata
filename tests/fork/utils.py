@@ -40,9 +40,10 @@ CONFIG = """<?xml version="1.0" encoding="UTF-8"?>
 class Generated:
     """A generated package in a throwaway directory."""
 
-    def __init__(self, root: Path, package: str):
+    def __init__(self, root: Path, package: str, output: str = ""):
         self.root = root
         self.package = package
+        self.output = output
 
     @property
     def path(self) -> Path:
@@ -107,8 +108,8 @@ def generate(
             one test's output is never mistaken for another's
         structure: The output structure style
         extra: Extra command line arguments
-        files: Extra schema files, by name, e.g. the other half of a pair
-            of schemas that import each other
+        files: Extra files, by relative name, e.g. the other half of a pair
+            of schemas that import each other, or a class name table
         expect_error: Keep the output of a generation that failed, which is
             what upstream does when it cannot import what it just wrote
 
@@ -119,7 +120,9 @@ def generate(
     root = Path(tempfile.mkdtemp(prefix="docx4j-xsdata-fork-"))
     root.joinpath("sample.xsd").write_text(schema)
     for name, source in (files or {}).items():
-        root.joinpath(name).write_text(source)
+        target = root.joinpath(name)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(source)
     root.joinpath(".xsdata.xml").write_text(
         CONFIG.format(package=package, structure=structure, options=options)
     )
@@ -140,4 +143,4 @@ def generate(
     finally:
         os.chdir(cwd)
 
-    return Generated(root, package)
+    return Generated(root, package, result.output)

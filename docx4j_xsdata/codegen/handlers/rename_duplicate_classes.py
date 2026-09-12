@@ -109,7 +109,10 @@ class RenameDuplicateClasses(ContainerHandlerInterface):
         """
         qname = target.qname
         target.qname = new_qname
-        target.meta_name = namespaces.local_name(qname)
+        # docx4j fork: keep the first name, the xml name of a class that
+        # the explicit name table (or the wsdl mapper) has already
+        # renamed is the schema's, not the table's.
+        target.meta_name = target.meta_name or namespaces.local_name(qname)
 
         self.container.reset(target, qname)
         self.renames[target.ref] = new_qname
