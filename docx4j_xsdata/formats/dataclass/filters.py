@@ -6,6 +6,7 @@ from typing import Any
 
 from jinja2 import Environment
 
+from docx4j_xsdata.codegen.exceptions import CodegenError
 from docx4j_xsdata.codegen.models import Attr, AttrType, Class
 from docx4j_xsdata.codegen.utils import ClassUtils
 from docx4j_xsdata.formats.converter import converter
@@ -45,6 +46,7 @@ class Filters:
         "format",
         "generic_collections",
         "import_patterns",
+        "list_factory",
         "max_line_length",
         "module_case",
         "module_safe_prefix",
@@ -101,6 +103,7 @@ class Filters:
         self.all_optional: bool = config.output.all_optional
         self.schema_defaults: SchemaDefaults = config.output.schema_defaults
         self.format = config.output.format
+        self.list_factory: str | None = self.build_list_factory(config)
 
         # Build things
         for module, imports in self.build_import_patterns().items():
@@ -240,6 +243,37 @@ class Filters:
         for search, replace in self.substitutions[obj_type].items():
             name = re.sub(search, replace, name)
 
+        return name
+
+    def build_list_factory(self, config: GeneratorConfig) -> str | None:
+        """Resolve the fork's list factory option and register its import.
+
+        docx4j fork, CR-001 section 5: docx4j swaps the JAXB collection type
+        for `ArrayListDocx4j`, a list subclass that sets the parent pointer of
+        everything appended to it. `bindings.xjb` does it with one
+        `jaxb:globalBindings collectionType`; this is the xsdata equivalent.
+
+        Args:
+            config: The generator config instance
+
+        Raises:
+            CodegenError: If the option is not a dotted path.
+
+        Returns:
+            The class name to use as the default factory, or None.
+        """
+        dotted_path = config.output.list_factory
+        if not dotted_path:
+            return None
+
+        module, _, name = dotted_path.rpartition(".")
+        if not module or not name.isidentifier():
+            raise CodegenError(
+                "Invalid list factory, expected a dotted path",
+                value=dotted_path,
+            )
+
+        self.import_patterns[module][name].add(f"{self.FACTORY_KEY}={name}")
         return name
 
     def field_definition(
@@ -823,7 +857,11 @@ class Filters:
     def field_default_value(self, attr: Attr, ns_map: dict | None = None) -> Any:
         """Generate the field default value/factory for the given attribute."""
         if attr.is_list or (attr.is_tokens and not attr.default):
-            return "tuple" if self.format.frozen else "list"
+            if self.format.frozen:
+                return "tuple"
+            if self.list_factory and attr.is_list and not attr.is_tokens:
+                return self.list_factory
+            return "list"
         if attr.is_dict:
             return "dict"
         if self.keep_schema_default_in_metadata(attr):

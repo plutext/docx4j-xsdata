@@ -242,6 +242,9 @@ class GeneratorOutput:
             or use="required" says.
         schema_defaults: docx4j fork: where a schema declared default value
             ends up, in the dataclass field or in the field metadata.
+        list_factory: docx4j fork: the dotted path of a list subclass to use
+            as the default factory of every list field, e.g.
+            `docx4j_py.child.ChildList`. Unset means the builtin list.
     """
 
     package: str = field(default="generated", metadata={"type": "Element"})
@@ -271,6 +274,9 @@ class GeneratorOutput:
     schema_defaults: SchemaDefaults = field(
         default=SchemaDefaults.FIELD,
         metadata={"type": "Element", "cli": False},
+    )
+    list_factory: str | None = field(
+        default=None, metadata={"type": "Element", "cli": False}
     )
 
     def __post_init__(self):

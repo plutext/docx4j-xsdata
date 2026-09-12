@@ -321,6 +321,44 @@ is the only place the value lives.
 
 **CLI Option:** none, project configuration only
 
+### ListFactory
+
+!!! Info "docx4j fork option, it does not exist upstream."
+
+The dotted path of a list subclass to use as the `default_factory` of every list field.
+The class is imported into each generated module that needs it. Unset, the default, means
+the builtin `list`.
+
+```xml
+<Output>
+  <ListFactory>docx4j_py.child.ChildList</ListFactory>
+</Output>
+```
+
+```python
+from docx4j_py.child import ChildList
+
+content: list[P | Tbl] = field(
+    default_factory=ChildList,
+    metadata={...},
+)
+```
+
+This is the xsdata equivalent of docx4j's one JAXB customization,
+`<jaxb:globalBindings collectionType="org.docx4j.list.ArrayListDocx4j"/>`: a list that
+sets the parent pointer of everything appended to it, so that a tree stays navigable
+upwards after it is mutated.
+
+Token list (`xs:NMTOKENS` and friends) and `xs:anyAttribute` fields are not affected:
+they hold strings, not model objects.
+
+The option is ignored when the output format is `frozen`, where the collections are
+tuples.
+
+**Default Value:** unset
+
+**CLI Option:** none, project configuration only
+
 ## Convention Settings
 
 Apply different naming convention per identifier.
