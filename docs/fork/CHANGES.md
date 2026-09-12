@@ -99,7 +99,7 @@ Copied from docx4j-python `docs/UPSTREAM.md`, which is the live list. Deferred o
 |---|---|---|---|
 | 1 | `--structure-style namespaces` emits mutually importing modules for schemas with cross-namespace type cycles (WML embeds DML, DML embeds WML through `a:graphicData`); the generated package cannot be imported. `namespace-clusters` refuses to generate at all. | `xsdata generate --structure-style namespaces schemas/wml/wml.xsd`, then `python -c "import <package>"`. docx4j-python `REPORT.md` section 3.1. | to report; fix planned in fork stage 2 |
 | 2 | `Error: Missing inner class` for an anonymous complexType declared inside an element that belongs to a recursive group (`w:dir`, `w:bdo` in `EG_PContent` / `EG_RunLevelElts`). | Generate from the unpatched docx4j `xsd/wml/wml.xsd`. `REPORT.md` section 2.1; the local workaround is a marked patch in docx4j-python's `schemas/wml/wml.xsd`. | to report; generator fix later |
-| 3 | Lenient parsing (`fail_on_unknown_properties=False`) discards elements and attributes with no warning, log record or counter. Arguably a feature request: a skipped-content report. | Parse `samples/2010-sample1.docx` `word/fontTable.xml`; `mc:Ignorable` is dropped silently. `REPORT.md` section 7.5. | to report as a feature request; fork Phase B adds the report |
+| 3 | Lenient parsing (`fail_on_unknown_properties=False`) discards elements and attributes with no warning, log record or counter. Arguably a feature request: a skipped-content report. | Parse `samples/2010-sample1.docx` `word/fontTable.xml`; `mc:Ignorable` is dropped silently. `REPORT.md` section 7.5. | to report as a feature request; the fork's report is stage 3 below, with the patch to offer |
 
 Also worth mentioning upstream when reporting, not bugs: `--kw-only` is documented but
 is not a 26.2 option (keyword-only is unconditional); the generator shells out to
@@ -286,4 +286,165 @@ result and parses and serializes with it. Two upstream tests were edited: the ex
 and enum elements (`<ListFactory>` is unset and therefore not written).
 
 `ruff check` outside `tests/fixtures` and `tools`: clean, as before stage 2.
+
+## Stage 3 — Phase B: two runtime options and a name table (done)
+
+CR-001 phase B. Three options, one commit each, all of them **defaulting to upstream
+behaviour**: an upstream config and an untouched `ParserConfig` / `SerializerConfig`
+still produce exactly what upstream produces.
+
+| Option | Where | Values | Default |
+|---|---|---|---|
+| `skipped_report` | `ParserConfig` | `True` / a `SkippedReport` | `False` |
+| `bool_format` | `SerializerConfig` | `"words"` / `"numeric"` | `"words"` |
+| `<ClassNames>` | `<Output>` of `.xsdata.xml` | a directory path | unset |
+
+```python
+from docx4j_xsdata.formats.dataclass.parsers.config import ParserConfig
+from docx4j_xsdata.formats.dataclass.serializers.config import SerializerConfig
+
+parser_config = ParserConfig(
+    fail_on_unknown_properties=False,
+    fail_on_unknown_attributes=False,
+    skipped_report=True,  # or SkippedReport(log=False)
+)
+serializer_config = SerializerConfig(bool_format="numeric")
+```
+
+```xml
+<Output maxLineLength="99">
+  ...
+  <UnnestClasses>true</UnnestClasses>
+  <ClassNames>codegen/names</ClassNames>
+</Output>
+```
+
+### 5. `ParserConfig(skipped_report=True)`
+
+The skipped content report, REPORT.md 7.5 and deferred upstream report 3. Lenient
+parsing drops unknown elements and attributes with no warning, log record or counter,
+which the round-trip promise of CR-001 cannot live with.
+
+**Where the list lives.** On the config, as `config.skipped`, and the parser exposes it
+as **`parser.skipped`** (a read-only property). It is a `SkippedReport`: iterable,
+`len()`-able, indexable, and holding `items`, a list of
+
+```python
+SkippedNode(kind="element"|"attribute", qname, parent_qname, parent_class, path, line)
+```
+
+`path` is the `/` joined qualified names of the ancestors with the item last, an
+attribute as `.../@name`; `line` is always `None`, no event handler reports positions.
+The report is **cleared at the start of every parse**, so one config (and therefore one
+parser) is one document at a time; give each thread or worker its own, or pass a
+`SkippedReport` instance per document. Every item is also logged at warning level
+through the `docx4j_xsdata` logger, which a user can silence per logger, or per report
+with `SkippedReport(log=False)`.
+
+An element is recorded in `NodeParser.start`, where the parser decides to build a
+`SkipNode` and where the node queue still knows the parent's binding metadata and the
+document path. Only the outermost skipped element is reported: everything below it is
+skipped with it and is not separately interesting. An attribute is recorded in
+`ElementNode.bind_attrs`, where lenient mode drops it; `xsi:*` attributes are excluded,
+exactly as strict mode excludes them. The JSON parser does not fill the report.
+
+Off is free: two `is not None` tests per element, and the attribute branch is only
+reached by an attribute that is already unknown.
+
+### 6. `SerializerConfig(bool_format="numeric")`
+
+Word writes `xsd:boolean` as `1`/`0`, xsdata as `true`/`false` (REPORT.md 7.6, CR-001
+open question 5, and the whole of the remaining `attribute-value` difference count in
+stage 2's round trip). `numeric` writes `1`/`0` for attributes, element text, token
+lists and the values of wildcard fields; `words` is upstream. An unknown value raises
+`SerializerError`. Parsing is untouched — `BoolConverter` already accepts all four
+spellings, which a test now pins.
+
+`EventGenerator.encode_primitive` is a classmethod with no access to the config, so the
+format is threaded to it as an optional last argument through `convert_data` and
+`next_attribute`; their signatures stay backwards compatible and `convert_data`, which
+is only ever called through an instance, becomes a plain method. Wildcard values never
+reach `encode_primitive` at all, the writer encodes them, so `EventHandler.encode_data`
+handles them from `self.config`.
+
+### 7. `<ClassNames>codegen/names</ClassNames>`
+
+The docx4j name table of CR-001 section 6.1. A directory, relative to the config file,
+of one JSON file per namespace:
+
+```json
+{
+  "namespace": "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
+  "java_package": "org.docx4j.wml",
+  "types": { "CT_PPr": "PPr", "CT_P": "P", "CT_Settings": "CTSettings", "ST_Jc": "STJc" },
+  "elements": { "document": "Document", "ins": "RunIns", "t": "Text" }
+}
+```
+
+`types` is keyed by `complexType` and `simpleType` name, `elements` by element name and
+covers three kinds of class: a global element (`document`), an element-specific class
+the generator creates where one type serves several names in a compound field (`ins`,
+`del`, upstream's `Ins1`/`Del1`), and the anonymous type an element declares, which
+`UnnestClasses` promotes to the top level (`R.T` for `w:t` becomes `Text`). A promoted
+type is matched by the element name it was promoted from — `Class.source_name`, a new
+field, remembers it — and its promoted name in `types` (`CT_R_t`) wins over that, which
+is the way out if an element and an attribute of the same name both declare an anonymous
+type. `java_package` is not used by the generator. Unmapped names keep the conventions.
+
+A mapped name is emitted **verbatim**: `Filters.class_name` returns it before the case
+convention runs, so `CTSettings` does not become `Ctsettings`. `Substitutions` still run
+before the table is consulted and do not run after it.
+
+**Collisions.** The renaming is a container handler between `MergeDuplicateClasses` and
+`RenameDuplicateClasses`, so a name the table makes ambiguous is disambiguated by the
+ordinary numeric suffixes and nothing is ever overwritten or merged. Each collision is
+logged:
+
+```
+ClassNames: t is mapped to `Text`, which CT_Body already owns; the generator will add a numeric suffix
+```
+
+Which class keeps the bare name is upstream's rule, not the table's: with one element
+class among them the element keeps it, otherwise every one of them is suffixed
+(`Text1`, `Text2`). A renamed class keeps the xml name the schema gave it, in
+`Meta.name`, so a rename never changes the document a class reads or writes. One
+upstream line changed for that: `RenameDuplicateClasses.rename_class` no longer
+overwrites a `meta_name` that is already set, so a class renamed twice keeps the first
+name, which is the schema's. The table only reaches top-level classes: with
+`UnnestClasses` off the inner classes keep the conventions.
+
+**How often one element name owns several classes.** On docx4j-python's
+`schemas/wml/wml.xsd` with `namespaces`, `UnnestClasses` and compound fields: 1,993
+top-level classes, 1,414 of them looked up by type name and 579 by element name; **77
+element names own more than one class**, 120 classes in all. The worst are `val` (10),
+`hyperlink` (7), `type` and `name` (5), then `ins`, `del`, `noBreakHyphen`,
+`softHyphen`, `annotationRef` and the date parts at 3 each. Those classes already share
+one name today and already take numeric suffixes, so the table costs nothing new; it
+renames the whole group and the group stays disambiguated. The integration stage should
+expect `RunIns`, `RunIns1`, `RunIns2` where docx4j has one name, and either accept the
+suffixes or map the scopes apart by their promoted `types` names.
+
+An entry whose value is not a valid python class name is logged and ignored; a
+`<ClassNames>` directory that does not exist is a `CodegenError`.
+
+### Test status
+
+`pytest --doctest-glob="docs/*.md"` on CPython 3.14.6:
+
+| | result |
+|---|---|
+| upstream `v26.2` | 1103 passed, 17 skipped |
+| the fork after the rename | 1103 passed, 17 skipped |
+| the fork after stage 2 | 1122 passed, 17 skipped |
+| the fork after stage 3 | 1159 passed, 17 skipped |
+
+The 37 new tests are `tests/fork/test_skipped_report.py`, `test_bool_format.py` and
+`test_class_names.py`; the two runtime ones parse and serialize hand-written models, the
+generator one generates a small schema with and without a name table and imports and
+round-trips the result. No upstream test was edited. The two runtime options are also
+documented, with doctests, in `docs/data_binding/basics.md`, and `<ClassNames>` in
+`docs/codegen/config.md`.
+
+`ruff check` outside `tests/fixtures` and `tools`: clean, and `ruff format --check`
+reports the same files as before stage 3.
 
