@@ -7,7 +7,7 @@
 | Upstream tag | `v26.2` (2026-02-15) |
 | Upstream commit | `7a82d771bbdddee2fb6ef0facf95979c426a0531` |
 | Fork branch | `docx4j` |
-| Remotes | `upstream` = <https://github.com/tefra/xsdata> (there is no `origin` yet) |
+| Remotes | `upstream` = <https://github.com/tefra/xsdata>, `origin` = <https://github.com/plutext/xsdata> |
 
 Update this table every time `tools/rebase-upstream.sh` is run.
 
@@ -84,6 +84,65 @@ Useful flags:
 3. `uv pip install -e '.[cli,lxml,soap,test]'` and
    `pytest --doctest-glob="docs/*.md"` — it must be as green as upstream's own tag.
 4. `git branch -D upstream-renamed-$TAG` once satisfied.
+5. Publish: `git push --force-with-lease origin docx4j`, then tag and push a release
+   (see [Publishing](#publishing)).
+
+## Branches and remotes
+
+The fork lives at <https://github.com/plutext/xsdata>, a GitHub fork of
+<https://github.com/tefra/xsdata>.
+
+| Remote | Points at | Used for |
+|---|---|---|
+| `upstream` | tefra/xsdata | fetching upstream tags. `tools/rebase-upstream.sh` fetches from this name, so do not rename it. |
+| `origin` | plutext/xsdata | publishing the fork. |
+
+| Branch | Contents | Rule |
+|---|---|---|
+| `main` | An exact mirror of `upstream/main`. | **Never commit to it or merge `docx4j` into it.** Update it only by fast-forwarding (`git pull upstream main`, or GitHub's "Sync fork" button). |
+| `docx4j` | The fork: tooling, rename and feature commits on an upstream tag. | The GitHub default branch. Rewritten on every rebase. |
+
+Why `docx4j` is never merged into `main`:
+
+* `docx4j` is maintained by rebasing, not merging. Each new upstream tag gets a
+  regenerated rename commit and the feature commits are replayed on top, so the
+  branch history is rewritten each time. A merge into `main` would make the next
+  rebase bring in duplicate commits and conflicts.
+* `docx4j` sits on a release tag, while `upstream/main` moves ahead of it with commits
+  written against the un-renamed `xsdata/` paths. Merging the two means reconciling
+  those commits with a rename that touches every file, which is exactly the conflict
+  that regenerating the rename exists to avoid.
+* A clean `main` keeps "Sync fork" working and makes upstream changes easy to diff.
+
+GitHub forks default new pull requests to target `tefra/xsdata`. Check the base
+repository when opening a PR.
+
+## Publishing
+
+Because every rebase rewrites `docx4j`, pushing it after a rebase needs a force push:
+
+```console
+$ git push --force-with-lease origin docx4j
+```
+
+`--force-with-lease` refuses to push if `origin/docx4j` has commits you have not
+fetched, so a rebase cannot silently discard someone else's push. An ordinary feature
+commit on top of an unchanged base needs only a normal `git push`.
+
+Rewriting the branch means a commit hash on `docx4j` is not a stable reference: after
+the next rebase it no longer lies on the branch. Anything that depends on the fork (the
+docx4j build, a pinned `pip install git+...`) must therefore pin a **tag**, never the
+branch or a bare commit. Tag each published state:
+
+```console
+$ git tag -a docx4j-v26.2.1 -m "docx4j_xsdata on upstream v26.2, fork release 1"
+$ git push origin docx4j-v26.2.1
+```
+
+Tag naming: `docx4j-v<upstream tag>.<fork release>`. The fork release number counts
+up from 1 on each upstream tag and resets when the fork moves to a new upstream tag.
+Tags are never moved or deleted: the tagged commits stay reachable through the tag
+after the branch has been rewritten.
 
 ## Self-test
 
