@@ -1,10 +1,14 @@
 # CR-001: The serialiser, and the parser after it
 
-**Status:** Proposed 2026-09-19. **Phase A implemented 2026-09-19** (in docx4j-python, not in the
-fork; section 8 below, and docx4j-python's CR-002 section 12.13). **Phase B implemented
-2026-09-19** (in the fork; section 9 below). Phase C **not recommended**: section 3.3's rule is
-"only if B leaves the writer under 3 MiB/s" and it leaves it at 3.24 (section 9.6). Phase D
-proposed, and is now the slower half.
+**Status:** Proposed 2026-09-19. **Done 2026-09-19**, less Phase C. **Phase A implemented**
+(in docx4j-python, not in the fork; section 8 below, and docx4j-python's CR-002 section 12.13).
+**Phase B implemented** (in the fork; section 9 below). Phase C **not started**: section 3.3's
+rule is "only if B leaves the writer under 3 MiB/s" and it leaves it at 3.24 (section 9.6).
+**Phase D implemented** (in the fork and in docx4j-python's `child.py`, `runtime.py` and
+`XmlPart._unmarshal`; section 10 below, and docx4j-python's CR-002 section 12.14). The parse is
+329 ms to 193 ms on the CR's 772 KB reference part, 2.29 to 3.90 MiB/s, and the marshal 820 ms to
+250 ms, 0.9 to 3.02 MiB/s; neither half reaches section 7's 5 MiB/s, and section 10.6 recommends
+closing the CR rather than starting a fifth phase.
 **Where:** this fork (`~/git/docx4j-xsdata`, branch `docx4j`), for phases B, C and D;
 **docx4j-python** (`../docx4j-python`, its engine's `XmlPart._marshal`) for Phase A, which is not
 the serialiser at all and is where the measurement says to start.
@@ -558,3 +562,280 @@ and the parse is not.
   (`docProps/core.xml`, the comment, revision and `pPrChange` dates); with dates scrubbed,
   zero parts differ. They **await a Word re-check**; docx4j-python's `tests/README.md` says
   so.
+
+## 10. Phase D implementation notes (2026-09-19)
+
+Section 3.4's three items, in its order, each measured before the next started and each
+gated on docx4j-python's round trip staying canonically identical and its parent-pointer
+check finding nothing. Six files changed, five in the fork ---
+`formats/converter.py`, `formats/dataclass/models/elements.py`,
+`formats/dataclass/parsers/utils.py`, `.../parsers/bases.py`,
+`.../parsers/handlers/lxml.py`, `.../parsers/nodes/element.py` and
+`.../parsers/config.py` --- and three in docx4j-python (`child.py`, `runtime.py`,
+`openpackaging/parts/xml_part.py`), with three new test modules under `tests/fork/`.
+No upstream test was edited, and no generated model, `el` table, `Child` or
+`ChildList` public behaviour was touched.
+
+### 10.1 The measurement, item by item
+
+`Symbols.docx`'s main part, 772 KB and 24,758 elements, median of five,
+`scripts/bench_marshal.py` as section 8.2. Run-to-run spread on this machine is about
+3%, and the machine was slower on the day than it was for section 9: the **same code**
+that measured 295 ms in section 9.7 measures 329 ms here, so every row below is from
+this session and the comparison is like for like.
+
+| after | commit | Symbols parse ms | MiB/s | the corpus, parse ms |
+|---|---|---:|---:|---:|
+| Phase B (where D starts) | `7b7d7f9` / `7afbd34` | 329 | 2.29 | 393 |
+| item 1, the binding plans | `cc448de` | 222 | 3.39 | 268 |
+| item 2, the `child` fast path | `b9be85f` | 189 | 3.98 | 229 |
+| item 3, the post-bind hook | `c394b93` / `25f1f29` | 193 | 3.90 | 238 |
+
+**`Symbols.docx`: 329 ms to 193 ms, 2.29 to 3.90 MiB/s, 41% off, 1.70x.** Section 3.4
+expected "2x, to about 5 MiB/s"; the measured 1.70x and 3.90 MiB/s is short of it, and
+section 10.6 says what the rest would cost. Marshal is untouched, as it should be (250
+ms, 3.02 MiB/s over three runs of the benchmark after the change).
+
+The whole corpus, before Phase D and after. The parse timed here is what
+`XmlPart._unmarshal` does, so after item 3 it is the parser **with** the parent wiring
+inside it rather than the parser plus a `link_parents` walk:
+
+| document | KB | parse ms | MiB/s | after: parse ms | MiB/s | marshal ms |
+|---|---:|---:|---:|---:|---:|---:|
+| 2010-glow-then-AlternateContent.docx | 9 | 1.1 | 7.89 | **0.8** | **10.24** | 1.2 |
+| 2010-mcAlternateContent-in-header.docx | 1 | 0.2 | 5.13 | **0.1** | **7.29** | 0.4 |
+| 2010-sample1.docx | 4 | 1.4 | 2.62 | **0.9** | **3.96** | 1.5 |
+| 2016_image_with_text_effects.docx | 4 | 1.0 | 3.68 | **0.6** | **6.95** | 0.9 |
+| DrawingML_GraphicData_wps.docx | 14 | 1.3 | 11.12 | **1.0** | **13.42** | 1.5 |
+| Headers.docx | 6 | 1.9 | 3.00 | **1.3** | **4.53** | 1.8 |
+| Images.docx | 3 | 0.9 | 3.12 | **0.6** | **4.86** | 1.0 |
+| Normal.dotm | 2 | 0.2 | 11.14 | **0.1** | **14.76** | 0.4 |
+| **Symbols.docx** | **772** | **329.1** | **2.29** | **193.4** | **3.90** | **258.3** |
+| invoice2013.docx | 25 | 6.3 | 3.84 | **4.8** | **5.02** | 5.3 |
+| sample-docx.docx | 17 | 7.4 | 2.21 | **5.5** | **2.96** | 6.4 |
+| tables.docx | 51 | 26.0 | 1.92 | **18.3** | **2.73** | 18.1 |
+| toc.docx | 51 | 14.1 | 3.53 | **9.2** | **5.39** | 10.7 |
+| w14_texteffects.docx | 6 | 1.7 | 3.24 | **1.0** | **5.92** | 1.5 |
+
+14 documents, 964 KB of main parts: **parse 393 ms to 238 ms**; marshal 304 ms to 309 ms,
+which is the 3% noise on a path nothing here touches.
+
+### 10.2 Item 1: the binding plans, and three smaller things beside them
+
+Three answers upstream rebuilds for every element of every document, and all three are
+properties of the class.
+
+* **The child-element lookup.** `XmlMeta.find_children` is a generator that scans the
+  elements mapping, then calls `find_choice` on every compound choice, then
+  `find_wildcard`; `ElementNode.child` and `ElementNode.bind_object` each ask for it per
+  child, which is **99,068 calls** for one 24,758-element part. `get_children(qname)`
+  builds the tuple once and keeps it in the new `children_index`; `find_children` is
+  `iter()` over it, so upstream's `next(meta.find_children(q), None)` callers are
+  unchanged. Caching per qname is exact because the wildcard half already caches its
+  namespace decision per qname (`XmlVar.match_namespace`).
+* **The attribute converters.** `ParserUtils.parse_var` reached its converter through
+  `parse_value`, `converter.deserialize`, `type_converter` and a `suppress` context
+  manager, **30,444 times** for that part, and `contextlib` alone was 61,088 calls of
+  `__init__`/`__enter__`/`__exit__`. For the common case --- a present value, a var with
+  one declared type, no tokens factory and no override --- the converter is resolved
+  once and kept on the var as `converter_plan`, and `parse_var` becomes one call.
+  `ConverterFactory` gained a **`generation` counter**, bumped by `register_converter`
+  and `unregister_converter`, which the plan carries so a converter registered later
+  invalidates it. Multiple types, tokens, the `types`/`tokens_factory`/`format`
+  overrides and **every failure** take upstream's path, which is what builds the message
+  and warns; the fast path catches `ConverterError` and falls through, so a bad value is
+  reported exactly once and exactly as before.
+* **The node classes.** `NodeParser.start` did `from ...parsers.nodes import ElementNode,
+  SkipNode, WrapperNode` on every element, to break the import cycle between `bases` and
+  the nodes package: 24,758 `_handle_fromlist` calls. `load_nodes()` breaks it once, on
+  the first element, and the three names live in module globals. A module-level import
+  is not available --- it is a real cycle (`parsers/__init__` imports `tree`, which
+  imports `bases`; `nodes/union` imports `bases`).
+* **The event loop.** `LxmlEventHandler.process_context` looked `self.parser.start`,
+  `self.parser.end`, `self.parser.register_namespace`, `self.clazz`, `self.queue`,
+  `self.objects` and the three `EventType` names up on every event; none of them can
+  change during a parse, so they are local variables now.
+
+**329 ms to 222 ms** (`cc448de`).
+
+### 10.3 Item 2: the fast path for a plain dataclass child
+
+`ElementNode.child` walked the vars a qname might match; `build_node` then asked whether
+the var is a union, what `xsi:type` says, what `xsi:nil` says, and whether a datatype or
+a wildcard class should take it; `build_element_node` fetched the meta, recomputed
+`nillable`, and decided whether the object has to be wrapped as a derived element. For a
+child whose qname matches **exactly one** var, whose var declares a single dataclass that
+is neither a union nor a wildcard, and whose element carries neither `xsi:type` nor
+`xsi:nil`, none of that has anything left to decide: the answer is a constant of the
+class and the qname.
+
+`build_child_plan` works it out once and keeps it in the meta's `child_plans`, beside
+`children_index`; `child` then constructs the `ElementNode` itself, with upstream's
+`assigned` bookkeeping (including its quirk that a var at field index 0 is never marked)
+reproduced exactly. **That is every element of a WordprocessingML part: 24,757 of
+24,757 on `Symbols.docx`.** `xsi:type`, substitution to another class, wildcards,
+unions, primitives, mixed content and `xsi:nil` all keep upstream's path.
+
+Two smaller things in `bind_content` came with it, because they are the same shape:
+
+* the mixed-content and wild-text branches are skipped entirely when the class has no
+  wildcard at all, and `bind_text` when it has no text var --- for most classes that is
+  two frames per element that were only ever going to return immediately;
+* the `PendingCollection` scan over the class parameters was an `isinstance` against a
+  `UserList`, which is an **abc**, per parameter per element: 72,271 `__instancecheck__`
+  calls for that part. `XmlMeta.has_list_vars` is computed once at build time --- no
+  element var of the class is a list, so the parser cannot have left a pending
+  collection --- and skips the scan. It is exact rather than a heuristic: all three
+  places that build a `PendingCollection` do so only for a `list_element` var of this
+  meta.
+
+**222 ms to 189 ms** (`b9be85f`).
+
+### 10.4 Item 3: the post-bind hook, and what it really cost
+
+`ParserConfig(on_bind: Callable[[Any], None] | None = None)`, called by
+`ElementNode.bind` immediately after `class_factory` builds the object. xsdata binds
+bottom up, so at that moment the object's own children exist and are bound and its
+parent does not exist yet --- exactly the moment a binding layer that wires something per
+object wants. It is off by default, it is not called when `xsi:nil` means no object was
+built, and it is per config, so a parse owns its hook the way it owns its skipped report.
+This is the one piece of Phase D that is a **feature** rather than a speed-up, and it is
+upstreamable on its own.
+
+docx4j-python fills it in with the new `child.link_children(obj)`: one level of what
+`link_parents` does, from the same `_child_plan` enumeration and by the same rules ---
+every `Child` in a single-valued field or a list field gets `obj` as its parent, every
+`ChildList` is bound to `obj` as its owner, and a typed object nested inside an
+`AnyElement` wildcard keeps the parent it has, exactly as `link_parents` leaves it.
+`runtime.parser_config` passes it as `functools.partial(link_children, context=...)`,
+and `XmlPart._unmarshal` skips the second walk when the config carries a hook.
+`link_parents` is unchanged and stays: hand-built trees, `deep_copy`, `set_contents` and
+the markdown importer all need it.
+
+**And it measures, on `Symbols.docx`, a wash: 189 ms to 193 ms, inside the noise.** Over
+the 50 typed parts of the corpus, where `scripts/parents.py` now parses each part both
+ways in one process, it is 293 ms against 268 ms, about 8%. The reason is worth
+recording, because section 2 of this CR got it wrong:
+
+* **Section 2's "0.12 s of the parse is `link_parents`" was a profiled cumulative time,
+  not a real one.** Measured directly, `link_parents` over that part is **20.5 ms of a
+  295 ms parse, 7%**, and `scripts/parents.py` has been reporting 9 to 11% of parse over
+  the corpus all along. There was never 0.12 s to win.
+* Of that 20 ms, almost all is the work itself --- a `getattr` for every element var of
+  every object, 235,598 of them --- and that work has to happen whichever walk does it.
+  What the hook removes is only the walk's own bookkeeping (the stack, the `id()`, the
+  `seen` set of 24,758 ints), and it adds 24,758 callback invocations, which costs about
+  the same.
+
+It is kept regardless, on three grounds that are not the clock: it is an upstreamable
+feature in its own right; it removes a second full traversal of the tree, which is
+memory traffic and a `seen` set proportional to the document; and it puts the parent
+pointer where docx4j puts it, at construction, so no window exists in which a parsed
+tree has no parents.
+
+**189 ms to 193 ms** (`c394b93` in the fork, `25f1f29` in docx4j-python).
+
+### 10.5 Where the 193 ms is
+
+`cProfile` of one parse of that part (0.54 s profiled for 0.19 s real, against 0.91 for
+0.30 where Phase D started), by `tottime`:
+
+| # | function | ncalls | tottime | cumtime |
+|---:|---|---:|---:|---:|
+| 1 | `handlers/lxml.py:44 process_context` | 1 | 0.089 | 0.547 |
+| 2 | `nodes/element.py:82 bind` | 24,758 | 0.041 | 0.316 |
+| 3 | `docx4j_py/child.py:678 link_children` | 24,758 | 0.039 | 0.069 |
+| 4 | `parsers/bases.py:90 start` | 24,758 | 0.035 | 0.114 |
+| 5 | `nodes/element.py:457 child` | 24,757 | 0.033 | 0.042 |
+| 6 | `isinstance` | 169,087 | 0.025 | 0.038 |
+| 7 | `nodes/element.py:169 bind_attrs` | 24,758 | 0.024 | 0.073 |
+| 8 | `getattr` | 232,241 | 0.023 | 0.023 |
+| 9 | `parsers/config.py:9 default_class_factory` | 24,758 | 0.019 | 0.053 |
+| 10 | `parsers/bases.py:163 end` | 24,758 | 0.017 | 0.345 |
+| 11 | `parsers/utils.py:84 parse_var` | 30,444 | 0.016 | 0.029 |
+| 12 | `docx4j_py/child.py:229 __post_init__` | 24,758 | 0.014 | 0.025 |
+| 13 | `nodes/element.py:130 bind_content` | 24,758 | 0.014 | 0.074 |
+| 14 | `nodes/element.py:257 bind_object` | 24,757 | 0.012 | 0.036 |
+
+`find_children`, `build_node`, `build_element_node`, `converter.deserialize`,
+`type_converter`, `contextlib`'s three methods, `abc.__instancecheck__` and
+`_handle_fromlist` --- eight of the fourteen entries of the profile Phase D started from
+--- are **gone from the table entirely**; `getattr` and `isinstance` are down from
+235,598 and 320,117 to 232,241 and 169,087. What is left is one Python frame per element
+per layer: the event loop, `start`, `child`, `end`, `bind` and its three helpers, the
+class factory, and docx4j-python's two (`link_children` and `__post_init__`, together 12%
+of the parse and the price of the parent pointers). Nothing in it is a mistake; like the
+writer after Phase B, it is the shape of the design.
+
+### 10.6 Where the CR stands, and what is left
+
+Section 7's recommendation 4 wants **both halves at or above 5 MiB/s on `Symbols.docx`**.
+After four phases, measured in one session on one machine:
+
+| | section 1 | now | |
+|---|---:|---:|---|
+| parse | 294 ms, 2.6 MiB/s | **193 ms, 3.90 MiB/s** | 1.5x |
+| marshal | 820 ms, 0.9 MiB/s | **250 ms, 3.02 MiB/s** | 3.3x |
+
+Neither half reaches 5 MiB/s; both are within 40% of it, and the one number section 1
+said limits docx4j-python --- the 820 ms marshal, which made the first edit of a typical
+document cost forty times python-docx --- is a third of what it was. A 5 MB main part is
+now about a second to parse and 1.3 s to write, where CR-001 opened at 1.9 s and 5.6 s.
+
+What it would take to close the remaining 25 to 40%, and why none of it is recommended
+now:
+
+1. **Fewer frames per element on the read side**, the twin of item 4 of Phase B: merge
+   `NodeParser.start` with `ElementNode.child`, and `ElementNode.bind` with `bind_attrs`
+   and `bind_content`. Worth perhaps 15%, at the price of a diff that no longer reads as
+   upstream's file with changes in it, which every phase so far has been careful to
+   remain. Offer the pieces upstream first; if they land, this stops being a fork
+   question.
+2. **Generated per-class binders**, the read-side Phase C. Section 3.3's rule ("only if
+   the runtime work leaves it under 3 MiB/s") is not met on either side now, and section
+   7's recommendation 1 --- runtime only, and a generator change is the most expensive
+   kind to carry through rebases --- holds on the read side for the same reasons it held
+   on the write side.
+3. **Not Python.** The profile is now one Python frame per element per layer with almost
+   no waste in any of them, and 24,758 elements is 24,758 x 8 frames. The honest next
+   step for 5 MiB/s is not a better arrangement of those frames; it is lxml doing more of
+   the work (a C-level binder), or not building typed objects at all for the parts that
+   do not need them --- which is exactly what docx4j-python's CR-005 already decided for
+   SpreadsheetML sheet data.
+
+**Recommendation: close CR-001.** Phases A, B and D are done, Phase C is not started by
+the CR's own rule, and the remaining gap to recommendation 4's 5 MiB/s is better spent on
+docx4j-python's CR-005 assumption than on a fifth phase here. The four upstream offers
+(reports 9 to 12 in docx4j-python's `docs/UPSTREAM.md`, plus the two Phase D adds) are
+the durable output.
+
+### 10.7 Fidelity
+
+* **The gate after every item**, in docx4j-python: the whole suite (**1,560 passed**, 2
+  skipped, 1 xfailed --- 1,553 before, plus seven new `link_children` and hook tests);
+  `scripts/roundtrip.py --models-module docx4j_py.wml --runtime docx4j_xsdata`, **50/50
+  parts canonically identical, 0 differences, 0 skipped, 34 `boolean-spelling`
+  respellings and no other category**; `scripts/parents.py`, **0 parent problems over 50
+  parts and 34,147 nodes**, now checking the hooked tree as well as the walked one;
+  `scripts/threads.py`; and `tests/openpackaging/test_marshal_one_pass.py`, which a
+  mis-bound parse would show.
+* **Oracles rather than expectations**, as Phase B's tests did. The three new modules
+  carry the upstream v26.2 code they replace: `test_parser_binding_plan.py` has
+  upstream's `find_children`, `parse_var` and `process_context` and compares over nine
+  qnames x three classes, thirteen attribute values and five documents;
+  `test_parser_fast_path.py` has upstream's `ElementNode.child` and compares the parsed
+  object over twelve documents, then pins which qnames get a plan and which children
+  still reach `build_node`; `test_parser_on_bind.py` pins the hook's contract. Each
+  oracle was checked by sabotage: removing the `xsi:type` guard fails four tests,
+  allowing a wildcard qname to plan fails two, dropping the converter generation fails
+  one, and dropping the wildcard from `get_children` fails ten.
+* The fork's suite: **1457 passed before, 1554 after**
+  (`pytest tests -o addopts=""`, less the four modules that need `requests`). +97, all in
+  `tests/fork/`. No upstream test edited or skipped.
+* `scripts/acceptance.py` regenerated. Against the eleven artefacts built from the two
+  commits before the change (`7afbd34` in docx4j-python, `7b7d7f9` in the fork), **143
+  parts compared, seven differ, and every difference is a wall-clock date**
+  (`docProps/core.xml` in three, `word/comments.xml` in two, `word/document.xml` in two);
+  with the dates scrubbed, zero parts differ. Parsing is not marshalling, and the user's
+  decision of 2026-09-19 stands: a dates-only difference needs **no Word re-check**.
+  docx4j-python's `tests/README.md` records it.
