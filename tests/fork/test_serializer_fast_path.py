@@ -110,6 +110,25 @@ class Compound:
 
 
 @dataclass
+class MixedChoice:
+    """A compound field that is also mixed: `convert_mixed_content`, not
+    `convert_elements`."""
+
+    class Meta:
+        name = "mixedchoice"
+        namespace = NS
+
+    content: list[object] = field(
+        default_factory=list,
+        metadata={
+            "type": "Elements",
+            "mixed": True,
+            "choices": ({"name": "a", "type": Base, "namespace": NS},),
+        },
+    )
+
+
+@dataclass
 class Mixed:
     """Mixed content: every value goes through `convert_any_type`."""
 
@@ -142,6 +161,7 @@ DOCUMENTS = {
     "choice-model": Compound(content=[Base(value="c")]),
     "choice-subclass": Compound(content=[Derived(value="c")]),
     "choice-primitive": Compound(content=["text"]),
+    "choice-mixed": MixedChoice(content=["text", Base(value="c")]),
     "mixed": Mixed(content=["text", AnyElement(qname=f"{{{NS}}}m")]),
     "everything": Holder(
         single=Derived(value="v"),
@@ -251,6 +271,7 @@ def var_of(clazz: type, name: str) -> XmlVar:
         (Holder, "tokens", False),
         (Holder, "content", False),  # a wildcard
         (Compound, "content", False),  # a compound field
+        (MixedChoice, "content", False),
         (Mixed, "content", False),
     ],
 )

@@ -157,15 +157,19 @@ class EventHandler(abc.ABC):
                 root=True,
             )
 
-        for name, *args in events:
+        # docx4j fork: `for name, *args in events` builds a list for every
+        # event; there are about seven per element. The events are fixed-width
+        # tuples, so index them.
+        for event in events:
+            name = event[0]
             if name == XmlWriterEvent.START:
-                self.start_tag(*args)
+                self.start_tag(event[1])
             elif name == XmlWriterEvent.END:
-                self.end_tag(*args)
+                self.end_tag(event[1])
             elif name == XmlWriterEvent.ATTR:
-                self.add_attribute(*args)
+                self.add_attribute(event[1], event[2])
             elif name == XmlWriterEvent.DATA:
-                self.set_data(*args)
+                self.set_data(event[1])
             else:
                 raise XmlWriterError(f"Unhandled event: `{name}`")
 
@@ -646,13 +650,28 @@ class EventGenerator:
             yield XmlWriterEvent.ATTR, key, value
 
         for var, value in self.next_value(obj, meta):
-            if var.wrapper_qname:
-                yield XmlWriterEvent.START, var.wrapper_qname
+            wrapper_qname = var.wrapper_qname
+            if wrapper_qname:
+                yield XmlWriterEvent.START, wrapper_qname
 
-            yield from self.convert_value(value, var, namespace)
+            # docx4j fork: a plain element field is converted here rather than
+            # through `convert_value` and, for a list, `convert_list` as well,
+            # so a child's events cross one generator frame instead of three.
+            fast = var.fast_element
+            if fast is None:
+                fast = var.fast_element = self.is_fast_element(var)
 
-            if var.wrapper_qname:
-                yield XmlWriterEvent.END, var.wrapper_qname
+            if fast:
+                yield from self.convert_fast_element(value, var, namespace)
+            elif var.is_elements and not var.mixed and not var.tokens:
+                # the same shortcut for a compound field: `convert_value` would
+                # fall through its first three branches to this one.
+                yield from self.convert_elements(value, var, namespace)
+            else:
+                yield from self.convert_value(value, var, namespace)
+
+            if wrapper_qname:
+                yield XmlWriterEvent.END, wrapper_qname
 
         yield XmlWriterEvent.END, qname
 
@@ -763,6 +782,39 @@ class EventGenerator:
         return not issubclass(
             clazz, (class_type.any_element, class_type.derived_element)
         )
+
+    def convert_fast_element(
+        self, value: Any, var: XmlVar, namespace: str | None
+    ) -> EventIterator:
+        """Convert the value of a plain element field to sax events.
+
+        docx4j fork. `var` has already answered `is_fast_element`, so it is a
+        single element field with a declared model class: `convert_value`'s
+        mixed, text, tokens and compound branches are all false for it by
+        construction, and what is left is this. Upstream reaches the same
+        events through `convert_value` and, for a list, `convert_list` too.
+
+        Args:
+            value: The input value, a model instance or a list of them
+            var: The field metadata instance
+            namespace: The class namespace URI
+
+        Yields:
+            An iterator of sax events.
+        """
+        clazz = var.clazz
+        if value.__class__ is clazz:
+            yield from self.convert_dataclass(value, namespace, var.qname, var.nillable)
+        elif var.list_element and collections.is_array(value):
+            for item in value:
+                if item.__class__ is clazz:
+                    yield from self.convert_dataclass(
+                        item, namespace, var.qname, var.nillable
+                    )
+                else:
+                    yield from self.convert_any_type(item, var, namespace)
+        else:
+            yield from self.convert_any_type(value, var, namespace)
 
     def convert_list(
         self,
@@ -967,6 +1019,7 @@ class EventGenerator:
         Raises:
             SerializerError: If the value doesn't match any choice field.
         """
+        fast = False
         if isinstance(value, self.context.class_type.derived_element):
             choice = var.find_choice(value.qname)
             value = value.value
@@ -987,13 +1040,24 @@ class EventGenerator:
             if not choice and check_subclass:
                 func = self.convert_xsi_type
                 choice = var
+            elif choice is not None and value.__class__ is choice.clazz:
+                # docx4j fork: `convert_value` would take its fast path for
+                # this choice; take it here instead, one frame earlier.
+                fast = choice.fast_element
+                if fast is None:
+                    fast = choice.fast_element = self.is_fast_element(choice)
 
         if not choice:
             raise SerializerError(
                 f"XmlElements undefined choice: `{var.name}` for `{type(value)}`"
             )
 
-        yield from func(value, choice, namespace)
+        if fast:
+            yield from self.convert_dataclass(
+                value, namespace, choice.qname, choice.nillable
+            )
+        else:
+            yield from func(value, choice, namespace)
 
     def convert_element(
         self,
