@@ -434,6 +434,7 @@ class XmlMeta(MetaMixin):
         "clazz",
         "element_vars",
         "elements",
+        "has_list_vars",
         "mixed_content",
         # Calculated
         "namespace",
@@ -486,6 +487,16 @@ class XmlMeta(MetaMixin):
         # kept beside it, because it is keyed the same way.
         self.children_index: dict[str, tuple[XmlVar, ...]] = {}
         self.child_plans: dict[str, Any] = {}
+        # docx4j fork: whether any element var of this class is a list, and so
+        # whether the parser can ever leave a `PendingCollection` among the
+        # class parameters. Most classes have none, and the check saves an
+        # `isinstance` against a `UserList` -- an abc, and not a cheap one --
+        # per parameter per instance.
+        self.has_list_vars = any(
+            var.list_element
+            or any(inner.list_element for inner in var.elements.values())
+            for var in itertools.chain(wildcards, choices, *elements.values())
+        )
 
     @property
     def element_types(self) -> set[type]:

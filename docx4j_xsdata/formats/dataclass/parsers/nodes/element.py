@@ -12,7 +12,7 @@ from docx4j_xsdata.formats.dataclass.parsers.config import ParserConfig
 from docx4j_xsdata.formats.dataclass.parsers.mixins import XmlNode
 from docx4j_xsdata.formats.dataclass.parsers.utils import ParserUtils, PendingCollection
 from docx4j_xsdata.logger import logger
-from docx4j_xsdata.models.enums import DataType, Namespace
+from docx4j_xsdata.models.enums import DataType, Namespace, QNames
 from docx4j_xsdata.utils.namespaces import target_uri
 
 
@@ -135,20 +135,29 @@ class ElementNode(XmlNode):
             tail: The element tail content
             objects: The list of intermediate parsed objects
         """
-        wild_var = self.meta.find_any_wildcard()
-        if wild_var and wild_var.mixed:
-            self.bind_mixed_objects(params, wild_var, objects)
-            bind_text = False
+        meta = self.meta
+        if meta.wildcards:
+            wild_var = meta.find_any_wildcard()
+            if wild_var.mixed:
+                self.bind_mixed_objects(params, wild_var, objects)
+                bind_text = False
+            else:
+                self.bind_objects(params, objects)
+                bind_text = self.bind_text(params, text)
+
+            if not bind_text:
+                self.bind_wild_text(params, wild_var, text, tail)
         else:
+            # docx4j fork: no wildcard, so no mixed content and no wild text;
+            # and no text var, for most classes, so no `bind_text` frame.
             self.bind_objects(params, objects)
-            bind_text = self.bind_text(params, text)
+            if meta.text is not None:
+                self.bind_text(params, text)
 
-        if not bind_text and wild_var:
-            self.bind_wild_text(params, wild_var, text, tail)
-
-        for key in params:
-            if isinstance(params[key], PendingCollection):
-                params[key] = params[key].evaluate()
+        if meta.has_list_vars:
+            for key, value in params.items():
+                if isinstance(value, PendingCollection):
+                    params[key] = value.evaluate()
 
     def bind_attrs(self, params: dict[str, Any]) -> None:
         """Parse the element attributes.
@@ -454,6 +463,42 @@ class ElementNode(XmlNode):
         Raises:
             ParserError: If the child element is unknown
         """
+        # docx4j fork: the fast path of CR-001 section 3.4. When the qname
+        # matches exactly one var, that var declares a single dataclass, and
+        # the element carries neither `xsi:type` nor `xsi:nil`, the whole of
+        # `build_node` and `build_element_node` is a constant of the class and
+        # the qname: no derived type to resolve, no wildcard to fall back to,
+        # no datatype to look up. The plan is built once and kept on the meta.
+        # Everything else -- `xsi:type`, substitution to another class,
+        # wildcards, unions, primitives and nillable content -- goes below.
+        plans = self.meta.child_plans
+        try:
+            plan = plans[qname]
+        except KeyError:
+            plan = plans[qname] = self.build_child_plan(qname)
+
+        if plan is not None and (
+            not attrs or (QNames.XSI_TYPE not in attrs and QNames.XSI_NIL not in attrs)
+        ):
+            var, meta = plan
+            unique = 0 if var.list_element else var.index
+            if not unique or unique not in self.assigned:
+                if unique:
+                    self.assigned.add(unique)
+
+                return ElementNode(
+                    meta=meta,
+                    config=self.config,
+                    attrs=attrs,
+                    ns_map=ns_map,
+                    context=self.context,
+                    position=position,
+                    derived_factory=None,
+                    xsi_type=None,
+                    xsi_nil=None,
+                    mixed=self.meta.mixed_content,
+                )
+
         for var in self.meta.get_children(qname):
             unique = 0 if not var.is_element or var.list_element else var.index
             if not unique or unique not in self.assigned:
@@ -469,6 +514,41 @@ class ElementNode(XmlNode):
             raise ParserError(f"Unknown property {self.meta.qname}:{qname}")
 
         return nodes.SkipNode()
+
+    def build_child_plan(self, qname: str) -> tuple[XmlVar, XmlMeta] | None:
+        """Work out whether `qname` can take the fast path, and how.
+
+        docx4j fork: the qname must match exactly one var, that var must
+        declare a single dataclass, and it must be neither a union nor a
+        wildcard. Then `build_node` and `build_element_node` have nothing left
+        to decide for an element without `xsi:type` or `xsi:nil`, and
+        :meth:`child` may build the node itself.
+
+        Args:
+            qname: The element qualified name
+
+        Returns:
+            The var and the metadata of the class to bind it to, or None when
+            the qname has to take upstream's path.
+        """
+        children = self.meta.get_children(qname)
+        if len(children) != 1:
+            return None
+
+        var = children[0]
+        if (
+            not var.is_element
+            or var.clazz is None
+            or var.is_clazz_union
+            or var.is_wildcard
+        ):
+            return None
+
+        meta = self.context.fetch(var.clazz, self.meta.namespace)
+        if meta is None:
+            return None
+
+        return var, meta
 
     def build_node(
         self,
