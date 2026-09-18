@@ -420,9 +420,11 @@ class XmlMeta(MetaMixin):
 
     __slots__ = (
         "any_attributes",
+        "attribute_vars",
         "attributes",
         "choices",
         "clazz",
+        "element_vars",
         "elements",
         "mixed_content",
         # Calculated
@@ -464,6 +466,11 @@ class XmlMeta(MetaMixin):
         self.any_attributes = any_attributes
         self.mixed_content = any(wildcard.mixed for wildcard in self.wildcards)
         self.wrappers = wrappers
+        # docx4j fork: `get_element_vars` and `get_attribute_vars` answer a
+        # question about the class, and the serializer asks it once per
+        # instance. Sorted on first use and kept.
+        self.element_vars: list[XmlVar] | None = None
+        self.attribute_vars: list[XmlVar] | None = None
 
     @property
     def element_types(self) -> set[type]:
@@ -476,19 +483,39 @@ class XmlMeta(MetaMixin):
         }
 
     def get_element_vars(self) -> list[XmlVar]:
-        """Return a sorted list of the class element variables."""
-        result = list(
-            itertools.chain(self.wildcards, self.choices, *self.elements.values())
-        )
-        if self.text:
-            result.append(self.text)
+        """Return a sorted list of the class element variables.
 
-        return sorted(result, key=get_index)
+        docx4j fork: the list is built once and kept on the meta; callers
+        must not modify it.
+        """
+        result = self.element_vars
+        if result is None:
+            result = list(
+                itertools.chain(self.wildcards, self.choices, *self.elements.values())
+            )
+            if self.text:
+                result.append(self.text)
+
+            result.sort(key=get_index)
+            self.element_vars = result
+
+        return result
 
     def get_attribute_vars(self) -> list[XmlVar]:
-        """Return a sorted list of the class attribute variables."""
-        result = itertools.chain(self.any_attributes, self.attributes.values())
-        return sorted(result, key=get_index)
+        """Return a sorted list of the class attribute variables.
+
+        docx4j fork: the list is built once and kept on the meta; callers
+        must not modify it.
+        """
+        result = self.attribute_vars
+        if result is None:
+            result = sorted(
+                itertools.chain(self.any_attributes, self.attributes.values()),
+                key=get_index,
+            )
+            self.attribute_vars = result
+
+        return result
 
     def get_all_vars(self) -> list[XmlVar]:
         """Return a sorted list of all the class variables."""

@@ -624,9 +624,14 @@ class EventGenerator:
             namespace,
             globalns=self.config.globalns,
         )
-        qname = qname or meta.qname
         nillable = nillable or meta.nillable
-        namespace, _tag = namespaces.split_qname(qname)
+        if qname:
+            namespace = namespaces.target_uri(qname)
+        else:
+            # docx4j fork: the meta carries the split of its own qname, so the
+            # common case, the field's name not overridden, needs no lookup.
+            qname = meta.qname
+            namespace = meta.namespace
 
         yield XmlWriterEvent.START, qname
 
