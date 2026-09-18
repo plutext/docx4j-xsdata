@@ -25,7 +25,7 @@ from docx4j_xsdata.formats.dataclass.serializers.config import (
 from docx4j_xsdata.models.enums import DataType, Namespace, QNames
 from docx4j_xsdata.utils import collections, namespaces
 from docx4j_xsdata.utils.constants import EMPTY_MAP
-from docx4j_xsdata.utils.namespaces import generate_prefix, prefix_exists, split_qname
+from docx4j_xsdata.utils.namespaces import generate_prefix, split_qname
 
 XSI_NIL = (Namespace.XSI.uri, "nil")
 
@@ -61,6 +61,10 @@ class EventHandler(abc.ABC):
         ns_context: The namespace context queue
         pending_tag: The pending element namespace, name tuple
         pending_prefixes: The pending element namespace prefixes
+        ns_uris: docx4j fork: the URIs of the current prefix map, indexed
+        uri_context: docx4j fork: the ns_uris queue, one entry per ns_context
+        ns_dirty: docx4j fork: whether the pending element added a prefix of
+            its own to the map it inherited from its parent
     """
 
     __slots__ = (
@@ -69,10 +73,13 @@ class EventHandler(abc.ABC):
         # Instance attributes
         "in_tail",
         "ns_context",
+        "ns_dirty",
         "ns_map",
+        "ns_uris",
         "pending_prefixes",
         "pending_tag",
         "tail",
+        "uri_context",
     )
 
     def __init__(self, config: SerializerConfig, ns_map: dict):
@@ -87,6 +94,35 @@ class EventHandler(abc.ABC):
         self.pending_tag: tuple | None = None
         self.pending_prefixes: list[list] = []
 
+        # docx4j fork: the prefix map, indexed and shared copy-on-write.
+        self.ns_uris: set[str] = set(ns_map.values())
+        self.uri_context: list[set] = []
+        self.ns_dirty = False
+
+    def own_ns_map(self) -> None:
+        """Give the pending element its own copy of the prefix map.
+
+        docx4j fork. An element's namespace context is the parent's until
+        something actually puts a prefix in it, which for a document that
+        declares its namespaces on the root never happens. Until then the
+        frame holds the *same* dict object as its parent, which is what
+        :meth:`start_namespaces` tests for.
+        """
+        context = self.ns_context
+        if len(context) > 1 and context[-1] is context[-2]:
+            self.ns_map = context[-1] = dict(self.ns_map)
+            self.ns_uris = self.uri_context[-1] = set(self.ns_uris)
+
+    def reindex_namespaces(self) -> None:
+        """Rebuild the URI index of the current prefix map.
+
+        docx4j fork. Call it after a change to the map that is not a plain
+        addition, e.g. the default namespace being reset.
+        """
+        self.ns_uris = uris = set(self.ns_map.values())
+        if self.uri_context:
+            self.uri_context[-1] = uris
+
     def write(self, events: EventIterator) -> None:
         """Feed the sax content handler with events.
 
@@ -99,6 +135,12 @@ class EventHandler(abc.ABC):
         Raises:
             XmlWriterError: On unknown events.
         """
+        # docx4j fork: the render owns its prefix map, so the element frames
+        # below can share it copy-on-write, and indexes its URIs once.
+        self.ns_map = dict(self.ns_map)
+        self.ns_uris = set(self.ns_map.values())
+        self.ns_dirty = False
+
         self.start_document()
 
         if self.config.schema_location:
@@ -140,8 +182,11 @@ class EventHandler(abc.ABC):
         """
         self.flush_start(False)
 
-        self.ns_context.append(self.ns_map.copy())
-        self.ns_map = self.ns_context[-1]
+        # docx4j fork: the frame starts as the parent's map, copied only if
+        # something adds to it (:meth:`own_ns_map`).
+        self.ns_context.append(self.ns_map)
+        self.uri_context.append(self.ns_uris)
+        self.ns_dirty = False
 
         self.pending_tag = split_qname(qname)
         self.add_namespace(self.pending_tag[0])
@@ -179,8 +224,14 @@ class EventHandler(abc.ABC):
         Args:
             uri: The namespace URI
         """
-        if uri and not prefix_exists(uri, self.ns_map):
+        # docx4j fork: `prefix_exists` scans the map's values; the index makes
+        # the check, which happens once per element and once per attribute, a
+        # set lookup, and the map is only copied when the answer is no.
+        if uri and uri not in self.ns_uris:
+            self.own_ns_map()
             generate_prefix(uri, self.ns_map)
+            self.ns_uris.add(uri)
+            self.ns_dirty = True
 
     def set_data(self, data: Any) -> None:
         """Set data notification receiver.
@@ -225,8 +276,10 @@ class EventHandler(abc.ABC):
         self.tail = None
         self.in_tail = False
         self.ns_context.pop()
+        self.uri_context.pop()
         if self.ns_context:
             self.ns_map = self.ns_context[-1]
+            self.ns_uris = self.uri_context[-1]
 
         for prefix in self.pending_prefixes.pop():
             self.end_prefix_mapping(prefix)
@@ -269,9 +322,17 @@ class EventHandler(abc.ABC):
         prefixes: list[str] = []
         self.pending_prefixes.append(prefixes)
 
-        try:
-            parent_ns_map = self.ns_context[-2]
-        except IndexError:
+        context = self.ns_context
+        if len(context) > 1:
+            # docx4j fork: nothing put a prefix in this element's map, so it is
+            # still the parent's map and declares nothing of its own. Upstream
+            # reached the same answer by comparing every entry, which is one
+            # dict lookup per prefix per element.
+            if not self.ns_dirty:
+                return
+
+            parent_ns_map = context[-2]
+        else:
             parent_ns_map = EMPTY_MAP
 
         for prefix, uri in self.ns_map.items():
@@ -282,7 +343,10 @@ class EventHandler(abc.ABC):
     def reset_default_namespace(self) -> None:
         """Reset the default namespace if the pending element is not qualified."""
         if self.pending_tag and not self.pending_tag[0] and None in self.ns_map:
+            self.own_ns_map()
             self.ns_map[None] = ""
+            self.reindex_namespaces()
+            self.ns_dirty = True
 
     @classmethod
     def is_xsi_type(cls, qname: str, value: Any) -> bool:
@@ -318,7 +382,18 @@ class EventHandler(abc.ABC):
         if self.config.bool_format == BOOL_NUMERIC and (data is True or data is False):
             return "1" if data else "0"
 
-        return converter.serialize(data, ns_map=self.ns_map)
+        # docx4j fork: a QName value makes the converter generate a prefix in
+        # the map, so the element takes its own copy first and a prefix that
+        # appears is a real change, to be declared on this element.
+        self.own_ns_map()
+        ns_map = self.ns_map
+        size = len(ns_map)
+        value = converter.serialize(data, ns_map=ns_map)
+        if len(ns_map) != size:
+            self.reindex_namespaces()
+            self.ns_dirty = True
+
+        return value
 
     @abc.abstractmethod
     def start_document(self) -> None:
