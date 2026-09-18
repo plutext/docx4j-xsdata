@@ -16,6 +16,25 @@ from docx4j_xsdata.models.enums import EventType
 
 Parsed = tuple[str | None, Any]
 
+# docx4j fork: upstream imports these three inside `NodeParser.start`, to break
+# the import cycle between this module and the nodes package; that is one
+# `_handle_fromlist` call per element of every document. The cycle is broken
+# once, on the first element, and the three types are kept here instead.
+ElementNode: Any = None
+SkipNode: Any = None
+WrapperNode: Any = None
+
+
+def load_nodes() -> None:
+    """Resolve the node types this module needs, breaking the import cycle."""
+    global ElementNode, SkipNode, WrapperNode
+
+    from docx4j_xsdata.formats.dataclass.parsers import nodes
+
+    ElementNode = nodes.ElementNode
+    SkipNode = nodes.SkipNode
+    WrapperNode = nodes.WrapperNode
+
 
 @dataclass
 class NodeParser(PushParser):
@@ -87,11 +106,8 @@ class NodeParser(PushParser):
             attrs: The element attributes
             ns_map: The element namespace prefix-URI map
         """
-        from docx4j_xsdata.formats.dataclass.parsers.nodes import (
-            ElementNode,
-            SkipNode,
-            WrapperNode,
-        )
+        if ElementNode is None:
+            load_nodes()
 
         try:
             item = queue[-1]

@@ -113,6 +113,7 @@ class XmlVar(MetaMixin):
     __slots__ = (
         "any_type",
         "clazz",
+        "converter_plan",
         "default",
         "elements",
         "factory",
@@ -206,6 +207,11 @@ class XmlVar(MetaMixin):
         # serializer works it out, like `namespace_matches` above, because the
         # answer depends on the context's class type.
         self.fast_element: bool | None = None
+        # docx4j fork: the converter the parser resolved for this var's single
+        # declared type, with the converter factory generation it was resolved
+        # under, so that `ParserUtils.parse_var` can convert an attribute or a
+        # text value with one call. None until the parser works it out.
+        self.converter_plan: tuple[int, Any, type] | None = None
         self.is_clazz_union = self.clazz and len(types) > 1
 
         namespace = default_namespace(namespaces)
@@ -422,6 +428,8 @@ class XmlMeta(MetaMixin):
         "any_attributes",
         "attribute_vars",
         "attributes",
+        "child_plans",
+        "children_index",
         "choices",
         "clazz",
         "element_vars",
@@ -471,6 +479,13 @@ class XmlMeta(MetaMixin):
         # instance. Sorted on first use and kept.
         self.element_vars: list[XmlVar] | None = None
         self.attribute_vars: list[XmlVar] | None = None
+        # docx4j fork: `find_children` scans the choices and the wildcards for
+        # every child element of every instance; the answer is a property of
+        # the class and the qname, so it is kept here on first use. The
+        # parser's own plan for a qname (`ElementNode.build_child_plan`) is
+        # kept beside it, because it is keyed the same way.
+        self.children_index: dict[str, tuple[XmlVar, ...]] = {}
+        self.child_plans: dict[str, Any] = {}
 
     @property
     def element_types(self) -> set[type]:
@@ -592,11 +607,43 @@ class XmlMeta(MetaMixin):
         qualified name. The binding process has to check all
         of them and see which one to use.
 
+        docx4j fork: the answer comes from :meth:`get_children`, which builds
+        it once per qname and keeps it; this is the iterator over it.
+
         Args:
             qname: The namespace qualified name
 
         Yields:
             An iterator of all the class vars that match the given qname.
+        """
+        return iter(self.get_children(qname))
+
+    def get_children(self, qname: str) -> tuple[XmlVar, ...]:
+        """Return all class vars that match the given qname, built once.
+
+        docx4j fork: :meth:`find_children` scanned the choices and the
+        wildcards on every child element of every instance, for an answer that
+        only depends on the class and the qname. The tuple is built on first
+        use and kept in `children_index`; callers must not modify it.
+
+        Args:
+            qname: The namespace qualified name
+
+        Returns:
+            The matching class vars, in the order `find_children` yields them.
+        """
+        result = self.children_index.get(qname)
+        if result is None:
+            result = tuple(self.build_children(qname))
+            self.children_index[qname] = result
+
+        return result
+
+    def build_children(self, qname: str) -> Iterator[XmlVar]:
+        """Yield all class vars that match the given qname.
+
+        docx4j fork: upstream's `find_children` body, the uncached half of
+        :meth:`get_children`.
         """
         elements = self.elements.get(qname)
         if elements:

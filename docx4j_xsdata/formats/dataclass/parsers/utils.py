@@ -110,6 +110,33 @@ class ParserUtils:
         Returns:
             The converted value or values.
         """
+        # docx4j fork: the common case is a present value on a var with one
+        # declared type and no tokens factory, and upstream reaches its
+        # converter through `parse_value`, `converter.deserialize`,
+        # `type_converter` and a `suppress` context manager, per value. The
+        # converter is a property of the var, so it is resolved once and kept
+        # on it; anything else, and any failure, takes upstream's path below,
+        # which is what reports it.
+        if (
+            value is not None
+            and types is None
+            and tokens_factory is None
+            and format is None
+            and not var.tokens
+        ):
+            plan = var.converter_plan
+            if plan is None or plan[0] != converter.generation:
+                plan = var.converter_plan = cls.build_converter_plan(var)
+
+            instance = plan[1]
+            if instance is not None:
+                try:
+                    return instance.deserialize(
+                        value, data_type=plan[2], ns_map=ns_map, format=var.format
+                    )
+                except ConverterError:
+                    pass  # upstream's path below builds the message and warns
+
         try:
             value = cls.parse_value(
                 value=value,
@@ -130,6 +157,36 @@ class ParserUtils:
             warnings.warn(message, ConverterWarning)
 
         return value
+
+    @classmethod
+    def build_converter_plan(cls, var: XmlVar) -> tuple[int, Any, Any]:
+        """Resolve the converter for a var with a single declared type.
+
+        docx4j fork: the answer `converter.deserialize` works out for every
+        value of this var, carried with the converter factory generation it
+        was worked out under so that a later `register_converter` invalidates
+        it. The converter is None when the var has more than one type or its
+        type has no converter, which sends the caller down upstream's path.
+
+        Args:
+            var: The xml var instance
+
+        Returns:
+            The generation, the converter instance or None, and the data type.
+        """
+        types = var.types
+        if len(types) == 1:
+            data_type = types[0]
+            try:
+                return (
+                    converter.generation,
+                    converter.type_converter(data_type),
+                    data_type,
+                )
+            except ConverterError:
+                pass
+
+        return converter.generation, None, None
 
     @classmethod
     def parse_value(

@@ -55,28 +55,43 @@ class LxmlEventHandler(XmlHandler):
         Returns:
             An instance of the class type representing the parsed content.
         """
+        # docx4j fork: the loop runs once per element of every document, so the
+        # things that do not change over it --- the parser's three bound
+        # methods, the node queue, the object list and the event names --- are
+        # looked up once rather than on every event.
+        parser = self.parser
+        start = parser.start
+        end = parser.end
+        register_namespace = parser.register_namespace
+        clazz = self.clazz
+        queue = self.queue
+        objects = self.objects
+        start_event = EventType.START
+        end_event = EventType.END
+        start_ns_event = EventType.START_NS
+
         for event, element in context:
-            if event == EventType.START:
-                self.parser.start(
-                    self.clazz,
-                    self.queue,
-                    self.objects,
+            if event == start_event:
+                start(
+                    clazz,
+                    queue,
+                    objects,
                     element.tag,
                     element.attrib,
                     element.nsmap,
                 )
-            elif event == EventType.END:
-                self.parser.end(
-                    self.queue,
-                    self.objects,
+            elif event == end_event:
+                end(
+                    queue,
+                    objects,
                     element.tag,
                     element.text,
                     element.tail,
                 )
                 element.clear()
-            elif event == EventType.START_NS:
+            elif event == start_ns_event:
                 prefix, uri = element
-                self.parser.register_namespace(ns_map, prefix or None, uri)
+                register_namespace(ns_map, prefix or None, uri)
             else:
                 raise XmlHandlerError(f"Unhandled event: `{event}`.")
 

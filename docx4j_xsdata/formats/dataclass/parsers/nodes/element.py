@@ -250,7 +250,7 @@ class ElementNode(XmlNode):
             Whether the parsed object can fit in one of class
             parameters or not.
         """
-        for var in self.meta.find_children(qname):
+        for var in self.meta.get_children(qname):
             if var.is_wildcard:
                 return self.bind_wild_var(params, var, qname, value)
 
@@ -454,7 +454,7 @@ class ElementNode(XmlNode):
         Raises:
             ParserError: If the child element is unknown
         """
-        for var in self.meta.find_children(qname):
+        for var in self.meta.get_children(qname):
             unique = 0 if not var.is_element or var.list_element else var.index
             if not unique or unique not in self.assigned:
                 node = self.build_node(qname, var, attrs, ns_map, position)

@@ -73,11 +73,15 @@ class ConverterFactory:
         registry: The registered converters
     """
 
-    __slots__ = "registry"
+    __slots__ = ("generation", "registry")
 
     def __init__(self):
         """Initialize the registry."""
         self.registry: dict[type, Converter] = {}
+        # docx4j fork: bumped whenever the registry changes, so that a caller
+        # may cache the converter it resolved for a type and notice when the
+        # answer has gone stale. See `ParserUtils.parse_var`.
+        self.generation: int = 0
 
     def deserialize(self, value: Any, types: Sequence[type], **kwargs: Any) -> Any:
         """Attempt to convert any value to one of the given types.
@@ -172,6 +176,8 @@ class ConverterFactory:
         else:
             self.registry[data_type] = ProxyConverter(func)
 
+        self.generation += 1
+
     def unregister_converter(self, data_type: type) -> None:
         """Unregister the converter for the given data type.
 
@@ -182,6 +188,7 @@ class ConverterFactory:
             KeyError: if the data type is not registered.
         """
         self.registry.pop(data_type)
+        self.generation += 1
 
     def type_converter(self, data_type: type) -> Converter:
         """Find a suitable converter for given data type.
