@@ -564,3 +564,11 @@ order for every top import, and two generations of one schema are byte identical
 upstream test was edited in this stage either.
 
 `ruff check` and `ruff format --check` outside `tests/fixtures` and `tools`: clean.
+
+## Stage 5 — the serialiser and the parser (proposed)
+
+[CR-001-serialiser.md](CR-001-serialiser.md), 2026-09-19: the measured cost of marshalling
+(0.9 MiB/s) and parsing (2.6 MiB/s), where it goes, and four phases --- the first of which is
+not in this fork at all but in docx4j-python's engine, which copies every tree once more than
+it needs to. Nothing implemented yet; each phase lands here as a stage of its own with its
+numbers.
