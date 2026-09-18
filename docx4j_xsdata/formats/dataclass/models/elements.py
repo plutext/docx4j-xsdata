@@ -116,6 +116,7 @@ class XmlVar(MetaMixin):
         "default",
         "elements",
         "factory",
+        "fast_element",
         "format",
         "index",
         "init",
@@ -200,6 +201,11 @@ class XmlVar(MetaMixin):
         self.tokens_factory = tokens_factory
 
         self.namespace_matches: dict[str, bool] | None = None
+        # docx4j fork: whether the serializer may skip the xsi:type decision
+        # for a value of exactly this var's declared class. None until the
+        # serializer works it out, like `namespace_matches` above, because the
+        # answer depends on the context's class type.
+        self.fast_element: bool | None = None
         self.is_clazz_union = self.clazz and len(types) > 1
 
         namespace = default_namespace(namespaces)

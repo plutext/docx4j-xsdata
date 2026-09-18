@@ -705,6 +705,23 @@ class EventGenerator:
         Yields:
             An iterator of sax events.
         """
+        # docx4j fork: a plain single dataclass element holding exactly its
+        # declared class goes straight to `convert_dataclass`. Upstream reaches
+        # the same events through `convert_any_type`, three isinstance checks
+        # and `convert_xsi_type`, for an xsi:type decision whose answer is
+        # `None` by construction. Anything else -- a subclass value, an
+        # object-typed var, a wildcard, a compound field -- keeps that path.
+        if value.__class__ is var.clazz:
+            fast = var.fast_element
+            if fast is None:
+                fast = var.fast_element = self.is_fast_element(var)
+
+            if fast:
+                yield from self.convert_dataclass(
+                    value, namespace, var.qname, var.nillable
+                )
+                return
+
         if var.mixed:
             yield from self.convert_mixed_content(value, var, namespace)
         elif var.is_text:
@@ -717,6 +734,30 @@ class EventGenerator:
             yield from self.convert_list(value, var, namespace)
         else:
             yield from self.convert_any_type(value, var, namespace)
+
+    def is_fast_element(self, var: XmlVar) -> bool:
+        """Return whether `var` takes the fast path of `convert_value`.
+
+        docx4j fork. A var qualifies when it is a single element field with a
+        declared model class that is neither of the generic wrappers, so that
+        a value of exactly that class can be converted without asking for an
+        xsi:type: `XmlVar.xsi_type` would answer `None`, because the declared
+        class is always one of the var's types.
+
+        Args:
+            var: The field metadata instance
+
+        Returns:
+            The bool result, cached on the var.
+        """
+        clazz = var.clazz
+        if clazz is None or not var.is_element or var.mixed or var.tokens:
+            return False
+
+        class_type = self.context.class_type
+        return not issubclass(
+            clazz, (class_type.any_element, class_type.derived_element)
+        )
 
     def convert_list(
         self,
