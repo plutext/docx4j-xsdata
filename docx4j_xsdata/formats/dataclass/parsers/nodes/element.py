@@ -108,6 +108,13 @@ class ElementNode(XmlNode):
             self.bind_content(params, text, tail, objects)
             obj = self.config.class_factory(self.meta.clazz, params)
 
+            # docx4j fork: the post-bind hook. The object is complete and its
+            # children are bound; its parent does not exist yet, because the
+            # parser binds bottom up. See `ParserConfig.on_bind`.
+            on_bind = self.config.on_bind
+            if on_bind is not None:
+                on_bind(obj)
+
         if self.derived_factory:
             obj = self.derived_factory(qname=qname, value=obj, type=self.xsi_type)
 

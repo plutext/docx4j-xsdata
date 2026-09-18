@@ -36,6 +36,13 @@ class ParserConfig:
         fail_on_unknown_properties: Skip unknown properties or fail with exception
         fail_on_unknown_attributes: Skip unknown XML attributes or fail with exception
         fail_on_converter_warnings: Turn converter warnings to exceptions
+        on_bind: docx4j fork: called with every object the parser builds, once
+            each, as soon as it is built. The parser binds bottom up, so the
+            object's own children exist and are bound when the callback sees
+            it, and its parent does not exist yet. It is the hook a binding
+            layer needs to wire something per object -- a parent pointer, a
+            registry entry -- without walking the finished tree a second time.
+            It must not raise, and what it returns is ignored.
         skipped_report: docx4j fork: collect the elements and attributes
             lenient parsing drops. True for a new report, or a
             `SkippedReport` instance to configure it or to share it.
@@ -54,6 +61,7 @@ class ParserConfig:
     fail_on_unknown_properties: bool = True
     fail_on_unknown_attributes: bool = False
     fail_on_converter_warnings: bool = False
+    on_bind: Callable[[Any], None] | None = None
     skipped_report: InitVar[bool | SkippedReport] = False
     skipped: SkippedReport | None = field(
         init=False, default=None, compare=False, repr=False
