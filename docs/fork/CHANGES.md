@@ -565,10 +565,131 @@ upstream test was edited in this stage either.
 
 `ruff check` and `ruff format --check` outside `tests/fixtures` and `tools`: clean.
 
-## Stage 5 — the serialiser and the parser (proposed)
+## Stage 5 — the serialiser, phase B (done)
 
 [CR-001-serialiser.md](CR-001-serialiser.md), 2026-09-19: the measured cost of marshalling
-(0.9 MiB/s) and parsing (2.6 MiB/s), where it goes, and four phases --- the first of which is
-not in this fork at all but in docx4j-python's engine, which copies every tree once more than
-it needs to. Nothing implemented yet; each phase lands here as a stage of its own with its
-numbers.
+(0.9 MiB/s) and parsing (2.6 MiB/s), where it goes, and four phases. Phase A was not in this
+fork at all but in docx4j-python's engine, which copied every tree once more than it needed
+to: 820 ms to 481 ms for a 772 KB main part, and no change here. **Phase B is this stage**:
+four commits over the writer, each a diff on one of upstream's files, each measured, and each
+gated on docx4j-python's 150 typed parts marshalling to the same bytes.
+
+**481 ms to 249 ms for that part, 1.57 to 3.03 MiB/s** — 3.3x against the 820 ms this
+started from. The whole 964 KB corpus: 565 ms to 301 ms. CR section 9 has the table after
+each item, the profile before and after, and the reasoning; this is what differs from
+upstream, file by file.
+
+No option, no configuration, nothing a caller sees: unlike stages 2 to 4, Phase B changes
+*how* the serializer does what upstream's serializer does, and not what it does. The gate is
+therefore byte equality rather than a new behaviour, and each of the three new test modules
+carries the upstream v26.2 code it replaces and compares against it.
+
+### 10. `serializers/mixins.py`: the prefix map shared copy-on-write
+
+`EventHandler.start_tag` copied the whole prefix-URI map for every element, and
+`start_namespaces` compared the copy against the parent's entry by entry to decide what to
+declare. With docx4j's **130-prefix** table and a 24,758-element part that is 24,758 dict
+copies and 3.2 M dict lookups per marshal, and the answer is "nothing new" every time;
+`add_namespace` added a linear scan of the map's values per element and per attribute.
+
+An element's frame now holds the *same dict object* as its parent until something actually
+puts a prefix in it (`own_ns_map`), the map's URIs are indexed in a set (`ns_uris`, with
+`uri_context` shadowing `ns_context`), and `start_namespaces` returns on one flag
+(`ns_dirty`) unless this element added something. The three things that can add a prefix all
+set the flag: `add_namespace`, `reset_default_namespace` (which re-indexes, because it
+*replaces* a URI), and a QName value, which makes the converter generate a prefix inside
+`encode_data` and is detected there by the map's size. `write` copies the caller's map once,
+which the per-element copy used to do for free.
+
+Which prefixes are declared where, and in what order, is unchanged.
+**481 ms to 336 ms** (`bdcc8a9`).
+
+### 11. `serializers/mixins.py` and `models/elements.py`: a fast path for a plain element
+
+Every element value went `convert_value`, `convert_any_type`, `convert_xsi_type`,
+`convert_dataclass`: three `isinstance` checks and an `xsi:type` decision, asked 378,244
+times on that part for an answer that is `None` every time.
+
+`XmlVar` gains `fast_element`, filled lazily beside the `namespace_matches` upstream already
+caches there, by the new `EventGenerator.is_fast_element`: a single element var, not mixed,
+not tokens, with a declared model class that is neither generic wrapper. When it is set and
+the value's class *is* that class, the events come straight from `convert_dataclass`. The
+decision is safe because `xsi_type` returns `None` exactly when `value.__class__ in
+var.types`, and the builder takes `clazz` from `types`.
+
+Subclass values, `object`-typed vars, wildcards, compound fields, tokens and mixed content
+keep upstream's path, and still get their `xsi:type`. **336 ms to 306 ms** (`fd28e1e`).
+
+### 12. `models/elements.py`: the class's var lists sorted once
+
+`XmlMeta.get_element_vars` and `get_attribute_vars` chained a class's wildcards, choices,
+elements, text and attributes and `sorted` them by field index, for every instance the
+serializer wrote: 49,516 `sorted` calls for one part, for a property of the class. Both are
+built on first use and kept on the meta (`element_vars`, `attribute_vars`). Their only
+callers are `next_value` and `next_attribute`, which read and never modify them.
+
+`convert_dataclass` also stopped splitting a qname whose split the meta already carries
+(`meta.namespace` is `target_uri(meta.qname)`). **306 ms to 262 ms** (`1d8b1f4`).
+
+### 13. `serializers/mixins.py`: a child's events over one frame instead of four
+
+Every event a nested element produces is yielded up through every generator frame between it
+and `write`. A plain child went `convert_dataclass`, `convert_value`, `convert_list`,
+`convert_value`, `convert_dataclass`; a compound field's child had `convert_elements` and
+`convert_choice` in the middle too.
+
+`convert_dataclass` now takes the branch `convert_value` would have taken — the new
+`convert_fast_element` for a plain element field, which is `convert_value` and
+`convert_list` folded into the one case they have for such a field, and `convert_elements`
+for a compound field that is neither mixed nor tokens — and `convert_choice` converts a
+value of the chosen field's own class itself. `write` indexes its event tuples instead of
+unpacking each into a list. **262 ms to 249 ms** (`8f2fe66`).
+
+Section 3.2's fifth-event idea ("one tuple per element rather than start, attributes, text
+and end") was implemented and **reverted**: it removes 34% of the events and measures
+nothing, because the attribute iterator it carries costs what the events it saves cost, and
+it breaks 30 of upstream's serialiser tests, which assert the event tuples. The cost is the
+frames, not the events.
+
+### Verified against the real project
+
+docx4j-python, the 16 documents of `samples/`, after **each** of the four commits:
+
+| | phase A | phase B |
+|---|---:|---:|
+| `Symbols.docx` main part, marshal | 481 ms, 1.57 MiB/s | **249 ms, 3.03 MiB/s** |
+| the writer's own share of it | 450 ms, 1.68 MiB/s | **232 ms, 3.24 MiB/s** |
+| 14 main parts, 964 KB, marshal | 565 ms | **301 ms** |
+| parse (untouched) | 371 ms | 356 ms |
+| the 150 typed parts, byte for byte | reference | **identical** |
+| round trip, canonically identical | 50/50 | **50/50** |
+| round trip, differences / skipped | 0 / 0 | **0 / 0** |
+| docx4j-python's suite | 1,553 passed | **1,553 passed** |
+
+The writer at 3.24 MiB/s is what decides the next phase: CR section 3.3 starts phase C, the
+generated per-class writers, "only if B leaves the writer under 3 MiB/s", and it does not.
+Phase D, the parser, is now the slower half (2.56 MiB/s against 3.01) and has had none of
+this attention.
+
+### Test status
+
+`pytest -o addopts="" --doctest-glob="docs/*.md"`, less the four modules that need
+`requests` (not installed in the environment this was run in), on CPython 3.14:
+
+| | result |
+|---|---|
+| the fork after stage 4 | 1122 passed |
+| the fork after stage 5 | **1457 passed** |
+
+335 more, all in `tests/fork/`, in three modules. Each carries the upstream v26.2 code the
+stage replaces and compares against it rather than against an expectation:
+`test_serializer_namespaces.py` (upstream's six namespace methods; the bytes over 14
+documents x 4 prefix maps x 3 writers, and a count of the map copies to show the
+optimisation engaged), `test_serializer_fast_path.py` (upstream's `convert_value`; the event
+stream and the bytes over 17 documents, which vars qualify, and the `xsi:type` decisions
+that remain), `test_serializer_events.py` (every content-handler call, against upstream's
+`convert_dataclass`, `convert_value` and `convert_choice`, over all 70 cases of the other
+two). Each oracle was checked by sabotage. **No upstream test was edited in this stage
+either.**
+
+`ruff check` and `ruff format --check` outside `tests/fixtures` and `tools`: clean.

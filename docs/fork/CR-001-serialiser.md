@@ -1,7 +1,10 @@
 # CR-001: The serialiser, and the parser after it
 
 **Status:** Proposed 2026-09-19. **Phase A implemented 2026-09-19** (in docx4j-python, not in the
-fork; section 8 below, and docx4j-python's CR-002 section 12.13). Phases B, C and D proposed.
+fork; section 8 below, and docx4j-python's CR-002 section 12.13). **Phase B implemented
+2026-09-19** (in the fork; section 9 below). Phase C **not recommended**: section 3.3's rule is
+"only if B leaves the writer under 3 MiB/s" and it leaves it at 3.24 (section 9.6). Phase D
+proposed, and is now the slower half.
 **Where:** this fork (`~/git/docx4j-xsdata`, branch `docx4j`), for phases B, C and D;
 **docx4j-python** (`../docx4j-python`, its engine's `XmlPart._marshal`) for Phase A, which is not
 the serialiser at all and is where the measurement says to start.
@@ -334,3 +337,224 @@ Checked, because Phase A's acceptance is byte equality and the two writers are d
   and revision dates) or the namespace declaration order above, and all ten differing parts are
   canonically identical once the dates are scrubbed. All eleven **passed in Word** on
   2026-09-19; docx4j-python's `tests/README.md` records the run.
+
+## 9. Phase B implementation notes (2026-09-19)
+
+Section 3.2's four items, in its order, each measured before the next started and each
+gated on docx4j-python's 150 typed parts marshalling to the **same bytes**. Four files
+changed, all in the fork: `formats/dataclass/serializers/mixins.py`,
+`formats/dataclass/models/elements.py` (two lazy slots and one more), and three new test
+modules under `tests/fork/`. No upstream test was edited, and no generated model, `el`
+table, `Child` or `ChildList` was touched.
+
+### 9.1 The measurement, item by item
+
+`Symbols.docx`'s main part, 772 KB and 24,758 elements, median of five, the same machine
+and the same `scripts/bench_marshal.py` as section 8.2. Run-to-run spread on this machine
+is about 3%.
+
+| after | commit | Symbols ms | MiB/s | the corpus, marshal ms |
+|---|---|---:|---:|---:|
+| Phase A (where B starts) | `7b501f5` (docx4j-python) | 481 | 1.57 | 565 |
+| item 1, the namespace work | `bdcc8a9` | 336 | 2.24 | 399 |
+| item 2, the `convert_value` fast path | `fd28e1e` | 306 | 2.47 | 365 |
+| item 3, the cached metadata iteration | `1d8b1f4` | 262 | 2.88 | 314 |
+| item 4, fewer frames | `8f2fe66` | 249 | 3.03 | 301 |
+
+**`Symbols.docx`: 481 ms to 249 ms, 1.57 to 3.03 MiB/s, 48% off.** Section 3.2 expected
+"the writer's share halves; `Symbols.docx` to about 250 ms"; the measured 249 is that.
+Against section 1's starting point the marshal of that part is **820 ms to 249 ms, 3.3x**.
+Parse is untouched, as it should be (295 ms, 2.56 MiB/s).
+
+The whole corpus, before Phase B and after:
+
+| document | KB | parse ms | MiB/s | marshal ms | MiB/s | after: marshal ms | MiB/s |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 2010-glow-then-AlternateContent.docx | 9 | 1.0 | 8.70 | 1.8 | 4.72 | **1.1** | **7.41** |
+| 2010-mcAlternateContent-in-header.docx | 1 | 0.2 | 5.05 | 0.5 | 2.27 | **0.4** | **2.78** |
+| 2010-sample1.docx | 4 | 1.4 | 2.61 | 2.4 | 1.49 | **1.8** | **1.96** |
+| 2016_image_with_text_effects.docx | 4 | 0.8 | 5.13 | 1.3 | 3.09 | **0.9** | **4.35** |
+| DrawingML_GraphicData_wps.docx | 14 | 1.2 | 11.81 | 2.3 | 6.15 | **1.5** | **9.40** |
+| Headers.docx | 6 | 1.8 | 3.24 | 2.9 | 1.98 | **1.9** | **3.04** |
+| Images.docx | 3 | 0.9 | 3.28 | 1.6 | 1.82 | **1.2** | **2.41** |
+| Normal.dotm | 2 | 0.2 | 11.54 | 0.4 | 4.58 | **0.4** | **5.13** |
+| **Symbols.docx** | **772** | **311.9** | **2.42** | **480.6** | **1.57** | **250.8** | **3.01** |
+| invoice2013.docx | 25 | 6.2 | 3.94 | 8.5 | 2.86 | **4.7** | **5.14** |
+| sample-docx.docx | 17 | 7.2 | 2.27 | 10.3 | 1.59 | **6.0** | **2.72** |
+| tables.docx | 51 | 24.4 | 2.05 | 32.4 | 1.54 | **18.0** | **2.78** |
+| toc.docx | 51 | 12.5 | 3.98 | 18.3 | 2.72 | **10.8** | **4.63** |
+| w14_texteffects.docx | 6 | 1.4 | 4.07 | 2.1 | 2.64 | **1.6** | **3.46** |
+
+14 documents, 964 KB of main parts: **marshal 565 ms to 301 ms**; parse 371 ms to 356 ms,
+which is noise on a path nothing here touches.
+
+### 9.2 Item 1: the namespace work, once per document instead of once per element
+
+The largest single item, and the one with the largest single cause. `EventHandler.start_tag`
+copied the whole prefix-URI map for every element, and `start_namespaces` then compared the
+copy against the parent's entry by entry to decide what to declare. docx4j's prefix table is
+**130 entries**, so on a 24,758-element part that is 24,758 dict copies and 3.2 M dict
+lookups per marshal, for an answer that is "nothing new" every time. `add_namespace` on top
+of that called `prefix_exists`, a linear scan of the map's *values*, once for the element
+and once per attribute.
+
+* An element's frame now holds the **same dict object** as its parent until something
+  actually puts a prefix in it. `own_ns_map` makes the copy at that point and nowhere else;
+  `ns_context` and the new parallel `uri_context` hold the shared objects.
+* The map's URIs are indexed in a set (`ns_uris`), so `add_namespace` is a set lookup.
+* `start_namespaces` returns on one flag (`ns_dirty`) unless this element added something.
+  At the root, where the parent map is empty by definition, it declares the whole map
+  exactly as before.
+* The three things that can put a prefix in the map all mark the flag: `add_namespace`,
+  `reset_default_namespace` (which also re-indexes, because it *replaces* a URI rather than
+  adding one), and a **QName value**, which makes the converter generate a prefix inside
+  `encode_data`. That last one is detected by the map's size before and after the call, so
+  it is exact without the writer having to know which values carry qualified names.
+* `write` copies the caller's map once, so a render owns the map it mutates. Upstream got
+  that for free from the per-element copy.
+
+**A departure from the letter of section 3.2**, which asked for the plan "per `XmlMeta` (or
+per `XmlVar`) ... cached on the meta/context keyed by the map's identity". The writer only
+ever sees qnames --- the meta is on the other side of the event stream --- and the
+copy-on-write frame reaches the same end state ("`start_namespaces` becomes a check of one
+flag per element and the running prefix map is touched only when an unseen namespace
+appears") in the writer alone, with no cache to key and no invalidation to get wrong, and it
+covers wildcard `AnyElement` content and `xsi:type` on the same terms as typed content.
+
+### 9.3 Item 2: the fast path in `convert_value`
+
+Every element value went `convert_value` to `convert_any_type` to `convert_xsi_type` to
+`convert_dataclass`: three `isinstance` checks and an `xsi:type` decision, asked 378,244
+times on that part for an answer that is `None` every time, because the value's class is the
+field's declared class.
+
+`XmlVar` gains `fast_element`, filled lazily beside the `namespace_matches` upstream already
+caches there, by `EventGenerator.is_fast_element`: a single element var, not mixed, not
+tokens, with a declared model class that is not a subclass of either generic wrapper
+(`AnyElement`, `DerivedElement`). When it is set and the value's class **is** that class,
+`convert_value` goes straight to `convert_dataclass`. The identity of the two is what makes
+the decision safe: `EventGenerator.xsi_type` returns `None` exactly when
+`value.__class__ in var.types`, and the builder takes `clazz` from `types`.
+
+Subclass values, `object`-typed vars, wildcards, compound fields, tokens and mixed content
+all keep upstream's path, and still get their `xsi:type`.
+
+### 9.4 Item 3: the metadata iteration
+
+`XmlMeta.get_element_vars` and `get_attribute_vars` chain a class's wildcards, choices,
+elements, text and attributes together and `sorted` them by field index --- and the
+serializer asks for both for every instance, 49,516 `sorted` calls and as many list builds
+for that one part. Both are built on first use and kept on the meta (`element_vars`,
+`attribute_vars`, two more lazy slots). Their only callers are the serializer's `next_value`
+and `next_attribute`, which read them and never modify them; the docstrings say so.
+
+`convert_dataclass` also stopped splitting a qname whose split it already has: `meta.namespace`
+*is* `target_uri(meta.qname)`, so the common case --- a field whose name is not overridden ---
+is two attribute reads rather than a cached `split_qname`.
+
+### 9.5 Item 4: fewer frames, and the event that was not worth collapsing
+
+Every event a nested element produces is yielded up through every generator frame between it
+and `write`, and the frames between a parent and a child were four: a plain child went
+`convert_dataclass`, `convert_value`, `convert_list`, `convert_value`, `convert_dataclass`;
+a compound field's child had `convert_elements` and `convert_choice` in the middle as well.
+
+`convert_dataclass` now takes the branch `convert_value` would have taken. For a plain
+element field that is the new `convert_fast_element`, which is `convert_value` and
+`convert_list` folded into the one case those two have for such a field; for a compound
+field that is neither mixed nor tokens it is `convert_elements` directly. `convert_choice`
+converts a value of the chosen field's own class itself. A child's events now cross one or
+two frames. `write` indexes its event tuples instead of unpacking each one into a list
+(`for name, *args in events` builds a list per event, and there are 79,960 of them).
+
+**Tried and reverted, and it is the more interesting half of this item.** Section 3.2's
+"`write` yields one tuple per element for the common case rather than start, attributes,
+text and end as separate events" was implemented as a fifth event kind carrying the start
+tag and an iterator over its attributes. It removes 27,087 of that part's 79,960 events ---
+34% --- and measured **nothing**: 250 ms against 247, inside the noise. The attribute
+iterator it has to carry costs what the events it saves cost. It also broke 30 of upstream's
+serialiser tests, which assert the event tuples, so keeping it would have meant editing
+upstream's tests for no gain. **The cost is the frames, not the events**, which is worth
+knowing before Phase C is ever considered.
+
+### 9.6 Where the 249 ms is, and what it says about Phase C
+
+Stage by stage on `Symbols.docx`'s main part, median of five, as section 8.3:
+
+| stage | ms | share |
+|---|---:|---:|
+| render to a tree (this fork's writer) | 232.3 | 92% |
+| the `mc:Ignorable` walk (docx4j-python's `_ignorable_prefixes`) | 9.7 | 3.9% |
+| `tostring` | 3.6 | 1.4% |
+| `cleanup_namespaces` | 0.4 | 0.2% |
+
+**The writer is 232 ms, 3.24 MiB/s.** Section 3.3 says Phase C, the generated per-class
+writers, is "started only if Phase B leaves the writer above 3 MiB/s" --- it does, by 8% ---
+so by the CR's own rule **Phase C is not started**. Section 7's recommendation 1 ("runtime
+only first, measure, and start C only against a measured shortfall") holds, and 9.5's
+finding argues the same way: what is left is the generator-frame machinery, and a generated
+`__write__` per class would have to abandon the event stream altogether to beat it, at the
+price of a generator change to carry through every rebase and an import-time budget to
+defend.
+
+The profile of one marshal of that part (0.93 s profiled for 0.25 s real, against 2.04 for
+0.48 where Phase B started), by `tottime`:
+
+| # | function | ncalls | tottime | cumtime |
+|---:|---|---:|---:|---:|
+| 1 | `mixins.py:603 convert_dataclass` | 458,205/79,961 | 0.131 | 0.568 |
+| 2 | `mixins.py:522 start_element` (lxml's `startElementNS`) | 24,758 | 0.077 | 0.077 |
+| 3 | `mixins.py:1109 next_value` | 48,946 | 0.052 | 0.081 |
+| 4 | `mixins.py:1006 convert_choice` | 174,461/80,091 | 0.048 | 0.504 |
+| 5 | `mixins.py:786 convert_fast_element` | 203,784/79,958 | 0.043 | 0.552 |
+| 6 | `isinstance` | 250,580 | 0.040 | 0.057 |
+| 7 | `mixins.py:987 convert_elements` | 170,534/79,933 | 0.037 | 0.520 |
+| 8 | `mixins.py:1165 next_attribute` | 51,845 | 0.037 | 0.141 |
+| 9 | `mixins.py:126 write` | 1 | 0.035 | 0.898 |
+| 10 | `mixins.py:291 flush_start` | 52,873 | 0.034 | 0.138 |
+
+`start_namespaces`, the largest function in section 8.4 at 0.391 tottime, is now 0.011 and
+out of the table; the 3.2 M `dict.get` are gone entirely; `convert_any_type` and
+`convert_xsi_type` no longer appear at all. What is left is **generator resumption**: items
+1, 4, 5 and 7 are 1.0 M resumptions of five generators for 79,960 events, and `next_value`,
+`next_attribute` and `flush_start` are the per-element bookkeeping under them. Nothing in it
+is a mistake any more; it is the shape of the design.
+
+### 9.7 What to do next
+
+**Phase D, the parser.** Parse is now the slower half --- 295 ms against 249, 2.56 MiB/s
+against 3.01 --- and it has had none of this attention: section 3.4's per-class binding
+plans and `bind_content` fast path are the same two ideas that paid here, and 0.12 s of the
+parse is docx4j-python's own `link_parents`, which the same walk could absorb. Section 7's
+recommendation 4 wants both halves at 5 MiB/s; the marshal is within striking distance of it
+and the parse is not.
+
+### 9.8 Fidelity
+
+* **Byte equality, part for part, after every item.** The 150 typed XML parts of the 16
+  sample documents were frozen before the first change and compared after each: **identical,
+  all four times**. docx4j-python's `tests/openpackaging/test_marshal_one_pass.py` passes
+  too, but it compares the tree writer against the string writer and both go through this
+  code, so the frozen bytes are the real gate here.
+* **Oracles rather than expectations.** Each of the three new test modules carries the
+  upstream v26.2 code it replaces and compares against it, so the tests say "unchanged"
+  rather than "as I expected": `test_serializer_namespaces.py` has upstream's six namespace
+  methods and compares the bytes over 14 documents x 4 prefix maps x 3 writers (and counts
+  the map copies, to show the optimisation engaged); `test_serializer_fast_path.py` has
+  upstream's `convert_value` and compares the event stream and the bytes over 17 documents;
+  `test_serializer_events.py` records every content-handler call and compares it against
+  upstream's `convert_dataclass`, `convert_value` and `convert_choice` over all 70 cases of
+  the other two. Each oracle was checked by sabotage: reverting a part of the change fails
+  the tests that cover it.
+* The fork's suite: **1122 passed before, 1457 after** (`pytest -o addopts="" --doctest-glob="docs/*.md"`,
+  less the four modules that need `requests`, which is not installed). +335, all in
+  `tests/fork/`. No upstream test edited or skipped.
+* docx4j-python's suite: 1,553 passed, 2 skipped, 1 xfailed, after every item.
+* `scripts/roundtrip.py --models-module docx4j_py.wml --runtime docx4j_xsdata`: 50/50 parts
+  canonically identical, 0 differences, 0 skipped, 34 `boolean-spelling` respellings and no
+  other category --- the gate of section 3, unchanged, after every item.
+* `scripts/acceptance.py` regenerated. Against the eleven artefacts built from the commit
+  before the change, **seven parts differ and every difference is a wall-clock date**
+  (`docProps/core.xml`, the comment, revision and `pPrChange` dates); with dates scrubbed,
+  zero parts differ. They **await a Word re-check**; docx4j-python's `tests/README.md` says
+  so.
