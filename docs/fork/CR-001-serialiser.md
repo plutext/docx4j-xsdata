@@ -546,9 +546,9 @@ and the parse is not.
   upstream's `convert_dataclass`, `convert_value` and `convert_choice` over all 70 cases of
   the other two. Each oracle was checked by sabotage: reverting a part of the change fails
   the tests that cover it.
-* The fork's suite: **1122 passed before, 1457 after** (`pytest -o addopts="" --doctest-glob="docs/*.md"`,
-  less the four modules that need `requests`, which is not installed). +335, all in
-  `tests/fork/`. No upstream test edited or skipped.
+* The fork's suite: **1122 passed before, 1457 after** (`pytest tests -o addopts=""`, less the
+  four modules that need `requests`, which is not installed). +335, all in `tests/fork/`. No
+  upstream test edited or skipped.
 * docx4j-python's suite: 1,553 passed, 2 skipped, 1 xfailed, after every item.
 * `scripts/roundtrip.py --models-module docx4j_py.wml --runtime docx4j_xsdata`: 50/50 parts
   canonically identical, 0 differences, 0 skipped, 34 `boolean-spelling` respellings and no

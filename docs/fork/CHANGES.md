@@ -673,8 +673,8 @@ this attention.
 
 ### Test status
 
-`pytest -o addopts="" --doctest-glob="docs/*.md"`, less the four modules that need
-`requests` (not installed in the environment this was run in), on CPython 3.14:
+`pytest tests -o addopts=""`, less the four modules that need `requests` (not installed in the
+environment this was run in), on CPython 3.14:
 
 | | result |
 |---|---|
