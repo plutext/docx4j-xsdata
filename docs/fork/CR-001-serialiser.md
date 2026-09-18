@@ -714,8 +714,10 @@ the markdown importer all need it.
 
 **And it measures, on `Symbols.docx`, a wash: 189 ms to 193 ms, inside the noise.** Over
 the 50 typed parts of the corpus, where `scripts/parents.py` now parses each part both
-ways in one process, it is 293 ms against 268 ms, about 8%. The reason is worth
-recording, because section 2 of this CR got it wrong:
+ways in one process, it is between a wash and 8% depending on the run: 268 against 293,
+274 against 282, 283 against 291 and 285 against 301 over four runs, so call it 3 to 5%
+and nothing on a single large part. The reason is worth recording, because section 2 of
+this CR got it wrong:
 
 * **Section 2's "0.12 s of the parse is `link_parents`" was a profiled cumulative time,
   not a real one.** Measured directly, `link_parents` over that part is **20.5 ms of a

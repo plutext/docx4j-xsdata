@@ -770,7 +770,8 @@ when `xsi:nil` means no object was built, and per config.
 
 docx4j-python fills it in with the new `child.link_children`, the one-level half of its
 `link_parents`, and `XmlPart._unmarshal` skips the second walk. Over the 50 typed parts of
-the corpus that is 293 ms to 268 ms; on `Symbols.docx` alone it is a **wash**, because the
+the corpus that is 3 to 5% (268 ms against 293, 274 against 282, 283 against 291, 285
+against 301, over four runs); on `Symbols.docx` alone it is a **wash**, because the
 per-object callback costs what the walk it replaces cost. CR section 10.4 records why: the
 CR's own "0.12 s of the parse is `link_parents`" was a profiled cumulative time, and the
 real figure was 20 ms of 295. It is kept for the feature, the traversal and the `seen` set
