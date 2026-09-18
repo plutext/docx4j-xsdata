@@ -332,5 +332,5 @@ Checked, because Phase A's acceptance is byte equality and the two writers are d
 * `scripts/acceptance.py` regenerated. Against the eleven artefacts built from the commit before
   the change, every differing entry is either a wall-clock date (`docProps/core.xml`, the comment
   and revision dates) or the namespace declaration order above, and all ten differing parts are
-  canonically identical once the dates are scrubbed. They **have not been re-checked in Word**;
-  docx4j-python's `tests/README.md` records that they are waiting for one.
+  canonically identical once the dates are scrubbed. All eleven **passed in Word** on
+  2026-09-19; docx4j-python's `tests/README.md` records the run.
