@@ -840,5 +840,18 @@ hand-written package beside a namespaces-layout output, importing a name the out
 provide, no longer fails the run and is left untouched and still broken; and a module the
 generator claims to have written but which cannot be imported still raises.
 
-Worth reporting upstream as a limitation rather than a bug: 1556 passed (the 1554 of stage 6
-plus these two).
+### 18. `formats/dataclass/generator.py`: ruff runs over the files the run wrote
+
+The same assumption, one line earlier: upstream hands `ruff check --fix --unsafe-fixes` and
+`ruff format` the output package's **directories** (`package_dirs`, the root included under
+`DeferredImports`), so every hand-written file beside the output was linted, fixed and
+reformatted to the generator's line length on every regeneration — 45 of docx4j-python's
+files on the first run after its CR-003, formatting only as it happened, but `--unsafe-fixes`
+over code the generator does not own is not acceptable. `render` records every file it
+yields and `ruff_code` gets that list. The same test asserts the hand-written file is byte
+for byte what it was (it is written with the spacing `format` drops and an import `--fix`
+could remove).
+
+Both worth reporting upstream as one limitation rather than a bug — "the output package is
+assumed to be exclusively generated" — with the patch: 1556 passed (the 1554 of stage 6 plus
+these two).

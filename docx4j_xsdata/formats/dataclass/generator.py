@@ -65,10 +65,11 @@ class DataclassGenerator(AbstractGenerator):
         resolver = DependenciesResolver(
             registry=packages, defer_imports=self.config.output.deferred_imports
         )
-        package_dirs = set()
         # The packages and modules this run writes, in the order it writes
-        # them; validate_imports imports exactly these (fork).
+        # them, and the files: validate_imports imports exactly these and
+        # ruff runs over exactly these (fork).
         generated: list[str] = []
+        written: list[str] = []
         defer_imports = self.config.output.deferred_imports
         root_dir = module_path(self.config.output.package)
         root_source = ""
@@ -77,7 +78,6 @@ class DataclassGenerator(AbstractGenerator):
             module = ".".join(path.relative_to(Path.cwd()).parts)
             package_path = path.joinpath("__init__.py")
             src_code = self.render_package(cluster, module)
-            package_dirs.add(str(path))
             if module:  # a single-module output has its __init__ in the cwd
                 generated.append(module)
 
@@ -86,12 +86,15 @@ class DataclassGenerator(AbstractGenerator):
                 root_source = src_code
                 continue
 
+            written.append(str(package_path))
             yield GeneratorResult(
                 path=package_path,
                 title="init",
                 source=src_code,
             )
-            yield from self.ensure_packages(path.parent)
+            for result in self.ensure_packages(path.parent):
+                written.append(str(result.path))
+                yield result
 
         # Generate modules
         eager_deps: dict[str, set[str]] = {}
@@ -103,6 +106,7 @@ class DataclassGenerator(AbstractGenerator):
             deferred_deps[cluster[0].target_module] = resolver.deferred_modules()
             generated.append(cluster[0].target_module)
 
+            written.append(str(module_path_py))
             yield GeneratorResult(
                 path=module_path_py,
                 title=cluster[0].target_module,
@@ -110,16 +114,18 @@ class DataclassGenerator(AbstractGenerator):
             )
 
         if defer_imports:
-            package_dirs.add(str(root_dir))
+            written.append(str(root_dir.joinpath("__init__.py")))
             yield GeneratorResult(
                 path=root_dir.joinpath("__init__.py"),
                 title="init",
                 source=root_source
                 + self.render_import_order(eager_deps, deferred_deps),
             )
-            yield from self.ensure_packages(root_dir.parent)
+            for result in self.ensure_packages(root_dir.parent):
+                written.append(str(result.path))
+                yield result
 
-        self.ruff_code(list(package_dirs))
+        self.ruff_code(written)
         self.validate_imports(generated)
 
     def validate_imports(self, modules: list[str] | None = None) -> None:

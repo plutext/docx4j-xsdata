@@ -1,4 +1,4 @@
-"""docx4j fork: the generator's import check covers what it wrote, nothing else.
+"""docx4j fork: the generator's import check and ruff pass cover what it wrote.
 
 Upstream validates its output by importing the output package and then every
 subpackage and module under it (`pkgutil.walk_packages`). That assumes the
@@ -8,7 +8,9 @@ and those import names that only exist after a later step of the build has run
 (`docx4j_py.wml.el`), so upstream's walk raised `ImportError` -- reported as
 "Circular Dependencies Found" -- on a package that was perfectly fine. The
 fork's `render` records the packages and modules it writes and
-`validate_imports` imports exactly those.
+`validate_imports` imports exactly those. The same assumption sent ruff over the
+output package's *directories*, so it reformatted (with `--fix --unsafe-fixes`)
+every hand-written file beside the output; ruff now runs over the files written.
 """
 
 import pytest
@@ -28,24 +30,30 @@ SCHEMA = """<?xml version="1.0" encoding="UTF-8"?>
 """
 
 # A hand-written package beside the generated one, importing a name that
-# nothing in the generated output provides.
-HANDWRITTEN = "from {package}.fork.v import el  # noqa: F401\n"
+# nothing in the generated output provides, and laid out as ruff would not
+# leave it (an unused import `--fix` would remove, spacing `format` would drop).
+HANDWRITTEN = "import os\nfrom {package}.fork.v import el\nx = (  1  )\n"
 
 
 def test_a_hand_written_module_beside_the_output_is_not_imported(gen) -> None:
     package = "validate_imports_fork"
+    # DeferredImports, as docx4j-python runs: it is the layout whose root
+    # package directory upstream handed to ruff whole.
     generated = gen(
         SCHEMA,
+        options="    <DeferredImports>true</DeferredImports>",
         package=package,
         structure="namespaces",
         files={f"{package}/extra/__init__.py": HANDWRITTEN.format(package=package)},
     )
 
     # The run succeeded (gen raises on an error), the output is importable,
-    # and the hand-written package is still there, untouched and still broken.
+    # and the hand-written package is still there, byte for byte, and still broken.
     module = generated.load()
     assert hasattr(module, "fork")
     assert "Circular Dependencies" not in generated.output
+    handwritten = generated.root.joinpath(package, "extra", "__init__.py")
+    assert handwritten.read_text() == HANDWRITTEN.format(package=package)
     with pytest.raises(ImportError):
         __import__(f"{package}.extra")
 
