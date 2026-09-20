@@ -562,7 +562,10 @@ def rewrite_ci(root: Path) -> list[str]:
                            cwd=root, check=True)
         else:
             publish.unlink()
-        done.append("removed .github/workflows/publish.yml (no PyPI publishing yet)")
+        done.append(
+            "removed upstream .github/workflows/publish.yml "
+            "(the fork's own is a feature commit on docx4j)"
+        )
     tests_wf = root / ".github/workflows/tests.yml"
     tests_wf.parent.mkdir(parents=True, exist_ok=True)
     tests_wf.write_text(MINIMAL_WORKFLOW, encoding="utf-8")

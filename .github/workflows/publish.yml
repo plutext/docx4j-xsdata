@@ -1,0 +1,63 @@
+name: Publish docx4j-xsdata to PyPI
+
+# Mirrors plutext/docx4j-core-ts's push-to-npm.yml (trusted publishing, no token anywhere), done the
+# PyPI way: publishing a GitHub release builds the sdist and wheel and uploads them to PyPI; running
+# the workflow by hand (workflow_dispatch) uploads the same build to TestPyPI, the dry run that shows
+# the name, the rendered README and the wheel before the name is taken on PyPI. The release tag must
+# match docx4j_xsdata.__version__ (docx4j-v26.2.1 against 26.2.1, docs/fork/REBASING.md "Publishing"),
+# because a version once published is never reused: a mistake ships as the next fork release.
+#
+# The trusted publishers are registered on pypi.org and test.pypi.org: project docx4j-xsdata, owner
+# plutext, repository docx4j-xsdata, workflow publish.yml, no environment. Renaming this file breaks
+# publishing until both settings are changed to match. The release procedure is REBASING.md's
+# "Publishing" section; what differs from upstream is docs/fork/CHANGES.md, stage 8.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  id-token: write # trusted publishing's OIDC token
+  contents: read
+
+jobs:
+  build-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install build and twine
+        run: python -m pip install --upgrade pip build twine
+
+      - name: Check the release tag matches the version
+        if: github.event_name == 'release'
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          VERSION="$(python -c 'import docx4j_xsdata; print(docx4j_xsdata.__version__)')"
+          echo "tag: $TAG, version: $VERSION"
+          if [ "${TAG#docx4j-v}" != "$VERSION" ]; then
+            echo "::error::release tag $TAG does not match docx4j_xsdata.__version__ $VERSION (expected docx4j-v$VERSION)"
+            exit 1
+          fi
+
+      - name: Build the sdist and the wheel
+        run: python -m build
+
+      - name: Check the distributions
+        run: twine check --strict dist/*
+
+      - name: Publish to TestPyPI
+        if: github.event_name == 'workflow_dispatch'
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+
+      - name: Publish to PyPI
+        if: github.event_name == 'release'
+        uses: pypa/gh-action-pypi-publish@release/v1
