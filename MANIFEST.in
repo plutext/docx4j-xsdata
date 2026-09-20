@@ -9,3 +9,5 @@ exclude .mkdocs.yml
 exclude .pre-commit-config.yaml
 
 global-exclude .DS_Store *.pyc
+# ruff, run by the generator with the ruff.toml beside it, writes its cache there
+prune docx4j_xsdata/formats/dataclass/.ruff_cache

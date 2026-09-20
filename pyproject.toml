@@ -9,6 +9,7 @@ include = ["docx4j_xsdata*"]
 name = "docx4j-xsdata"
 description = "Python XML Binding - the docx4j-python fork of xsdata"
 authors = [{name = "Christodoulos Tsoulloftas", email = "chris@komposta.net"}]
+maintainers = [{name = "Plutext Pty Ltd", email = "jharrop@plutext.com"}]
 license = "MIT"
 license-files = ["LICENSE"]
 classifiers = [
