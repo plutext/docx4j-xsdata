@@ -7,7 +7,7 @@
 | Upstream tag | `v26.2` (2026-02-15) |
 | Upstream commit | `7a82d771bbdddee2fb6ef0facf95979c426a0531` |
 | Fork branch | `docx4j` |
-| Remotes | `upstream` = <https://github.com/tefra/xsdata>, `origin` = <https://github.com/plutext/xsdata> |
+| Remotes | `upstream` = <https://github.com/tefra/xsdata>, `origin` = <https://github.com/plutext/docx4j-xsdata> |
 
 Update this table every time `tools/rebase-upstream.sh` is run.
 
@@ -89,13 +89,13 @@ Useful flags:
 
 ## Branches and remotes
 
-The fork lives at <https://github.com/plutext/xsdata>, a GitHub fork of
+The fork lives at <https://github.com/plutext/docx4j-xsdata>, a GitHub fork of
 <https://github.com/tefra/xsdata>.
 
 | Remote | Points at | Used for |
 |---|---|---|
 | `upstream` | tefra/xsdata | fetching upstream tags. `tools/rebase-upstream.sh` fetches from this name, so do not rename it. |
-| `origin` | plutext/xsdata | publishing the fork. |
+| `origin` | plutext/docx4j-xsdata | publishing the fork. |
 
 | Branch | Contents | Rule |
 |---|---|---|
