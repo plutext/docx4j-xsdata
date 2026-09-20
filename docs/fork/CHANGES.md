@@ -26,7 +26,7 @@ upstream tag is adopted by re-running the script rather than by rebasing the ren
 | CLI banner | `========= xsdata v26.2 ...` | `========= docx4j-xsdata v26.2 ...` |
 | schema download cache | `/tmp/xsdata.<version>.<hash>.cache` | `/tmp/docx4j-xsdata.<version>.<hash>.cache` |
 | HTTP User-agent | `xsdata/<version>` | `docx4j-xsdata/<version>` |
-| CI | tests, W3C tests, benchmarks, pre-commit, codecov, PyPI publish | tests (3.10–3.14) and the minimum-install check only |
+| CI | tests, W3C tests, benchmarks, pre-commit, codecov, PyPI publish | tests (3.10–3.14) and the minimum-install check; the fork's own PyPI publishing is stage 8 |
 
 The point of the rename is coexistence: the fork's runtime installs alongside upstream
 `xsdata` in one environment, and generated bindings import their runtime types from
@@ -855,3 +855,124 @@ could remove).
 Both worth reporting upstream as one limitation rather than a bug — "the output package is
 assumed to be exclusively generated" — with the patch: 1556 passed (the 1554 of stage 6 plus
 these two).
+
+## Stage 8 — publishing (done)
+
+2026-09-20, docx4j-python's CR-007 Phase A: the fork becomes a distribution on PyPI, so that
+docx4j-python can be one too. Nothing in the library changes; this stage is the version, the
+metadata, the workflow and the gate that the fork's own suite cannot provide. The outward steps
+(the push, the TestPyPI dry run, the tag, the GitHub release) are the maintainer's and are the
+"Releasing" steps of [REBASING.md](REBASING.md#publishing).
+
+### 19. `docx4j_xsdata/__init__.py`: the version is `26.2.1`
+
+`<upstream tag>.<fork release>`, the scheme REBASING.md fixed for the tag: upstream `26.2`
+plus fork release 1, tagged `docx4j-v26.2.1`. Upstream's versions have two components
+(`24.9`, `25.4`, `25.7`, `26.1`, `26.2`), so a three-component number never collides with an
+upstream release and reads as what it is. The fork release counts up from 1 on each upstream
+tag and resets when the base moves (`26.3.1` after the next rebase).
+
+The alternatives were considered and are worse: `0.26.2` hides the base, which is the whole
+point of the naming; `26.2.post1` is PEP 440's spelling for a packaging-only re-release of the
+same code, and this is a feature fork; `26.2+docx4j.1` is a local version label, which PyPI
+rejects.
+
+The bump is an ordinary feature commit on `docx4j`, replayed by each rebase like the others,
+and the last commit before the tag. Nothing generated moves with it: the generated file header
+carries `__version__` only when the consumer's config asks for it (docx4j-python suppresses
+it), the CLI banner and the download cache name read it at run time, and
+`GeneratorConfig.read` overwrites a config file's `version="..."` attribute rather than
+checking it, so a consumer's `.xsdata.xml` written under `26.2` needs no edit. No test asserts
+the number: `tests/test_cli.py`, `tests/models/test_config.py` and `tests/formats/test_mixins.py`
+import `__version__`, and the `version="26.2"` in `tests/fork/`'s config fixtures is input the
+parser overwrites.
+
+### 20. `pyproject.toml`: `maintainers`
+
+`maintainers = [{name = "Plutext Pty Ltd", email = "jharrop@plutext.com"}]`. `authors` stays
+upstream's author: the MIT notice requires the copyright to survive and the metadata is where a
+reader looks. Everything else is as the rename left it: the description, the `plutext/docx4j-xsdata`
+URLs (`Homepage`, `Source`, `Changelog` at this file; `Upstream` and `Documentation` at
+upstream's), the classifiers (upstream `v26.2` carries no `Development Status` classifier, and
+the fork adds none), `readme`, `license`, `license-files`, `keywords`,
+`requires-python >=3.10`, the extras and the console script.
+
+`MANIFEST.in` gains one line, `prune docx4j_xsdata/formats/dataclass/.ruff_cache`: the
+generator runs ruff with the `ruff.toml` beside it, so ruff's cache lands inside the package in
+every checkout the generator has run from, and `recursive-include docx4j_xsdata *` swept its
+three files into both a hand-built wheel and sdist. A CI build from a fresh checkout never had
+it; a hand build now matches.
+
+### 21. `.github/workflows/publish.yml`: trusted publishing
+
+Upstream's `publish.yml` is removed by the rename (`tools/rename.py`, `rewrite_ci`); the
+fork's own is a feature commit, replayed onto each new base like the rest. It mirrors
+docx4j-core-ts's `push-to-npm.yml`, the PyPI way:
+
+| | |
+|---|---|
+| trigger | a GitHub **release** (`types: [published]`) publishes to PyPI; **`workflow_dispatch`** publishes the same build to TestPyPI (`repository-url: https://test.pypi.org/legacy/`), the dry run that shows the name, the rendered README and the wheel before the name is taken |
+| permissions | `id-token: write` (the OIDC token trusted publishing exchanges for a short-lived upload token), `contents: read`; **no API token, no secret, anywhere** |
+| steps | `actions/checkout@v6`, `actions/setup-python@v6` (3.12), `pip install build twine`, the tag check, `python -m build`, `twine check --strict dist/*`, `pypa/gh-action-pypi-publish@release/v1` (the major pinned, as the action documents) |
+| the tag check | on a release only: `docx4j-v<version>` against `python -c 'import docx4j_xsdata; print(docx4j_xsdata.__version__)'`, so a tag that does not match the committed version fails before anything is built. A published version is never reused, on PyPI or on TestPyPI: a mistake ships as the next fork release |
+| the trusted publishers | registered 2026-09-20 on pypi.org and test.pypi.org as **pending publishers** (the project name did not exist yet): project `docx4j-xsdata`, owner `plutext`, repository `docx4j-xsdata`, workflow `publish.yml`, no environment. Renaming the workflow file breaks publishing until both settings are changed to match |
+
+`tests.yml` is unchanged; the versions of `checkout` and `setup-python` are the ones it uses.
+Upstream's workflow carried `attestations: false` as a workaround for
+`pypa/gh-action-pypi-publish#283`; the fork's does not, and takes the action's default
+(attestations on). If the first run fails on that step, that is the setting to look at.
+
+### What ships
+
+Built by hand once with `python -m build` (build 1.6.1, twine 7.0.0, CPython 3.14.6) and
+recorded here; the workflow builds the same way.
+
+| | | |
+|---|---|---|
+| `docx4j_xsdata-26.2.1-py3-none-any.whl` | 254 KiB, 153 files | `docx4j_xsdata` only (`[tool.setuptools.packages.find]`): 125 modules, `py.typed`, the eleven generator templates, `ruff.toml`, the nine bundled schemas; `dist-info` with `LICENSE` |
+| `docx4j_xsdata-26.2.1.tar.gz` | 440 KiB, 546 entries | `MANIFEST.in`'s: the package, `tests/` (317, `tests/fork/`'s 21 among them), `docs/` (50, `docs/fork/` among them), `LICENSE`, `README.md`, `CHANGES.md`, `pyproject.toml`; not `tools/`, not `.github/` |
+
+`twine check --strict` passes on both; the METADATA renders the README as markdown, names the
+author, the maintainer, the five URLs and `Requires-Python: >=3.10`.
+
+### Verified against the real project
+
+The consumer test, which is the release gate the fork's own suite cannot stand in for: the
+fork's features exist for docx4j-python, so docx4j-python is the acceptance test. A clean
+CPython 3.12.13 virtual environment, `pip install dist/docx4j_xsdata-26.2.1-py3-none-any.whl[lxml,cli]`,
+then docx4j-python installed editable with `--no-deps` (its pin is still `==26.2`, which its
+own CR-007 Phase B moves once this release is on PyPI) plus `pytest` and `markdown-it-py`:
+
+| | result |
+|---|---|
+| `import docx4j_py` against the wheel's `docx4j_xsdata` | imports; `docx4j_xsdata.__version__` is `26.2.1` |
+| `python -m pytest -m "not slow"` | **1912 passed, 2 skipped**, 36 deselected, 60 s |
+| `codegen/generate.sh --check` with the wheel's `docx4j-xsdata` and `ruff` on `PATH` | reproducible, two generations byte identical, and identical to the committed tree |
+
+This is the first regeneration of docx4j-python from an installed wheel rather than the
+editable checkout, and the first on 3.12 (its own environment is 3.14).
+
+**A note for this release's users.** docx4j-python's `codegen/generate.sh` was broken from its
+CR-003 Phase B (2026-09-16, the first hand-written packages beside the generated ones) until
+stage 7's two generator fixes (`a7957efc`, `06742c5a`, 2026-09-20): the output package was
+assumed to be exclusively generated, so `validate_imports` failed on a hand-written module that
+imports a not-yet-generated one, and ruff was run over hand-written files. `26.2.1` is the first
+release with both fixes; nothing before it was published.
+
+### Test status
+
+`pytest tests -o addopts=""`, less the four modules that need `requests`, on CPython 3.14.6,
+after the version bump:
+
+| | result |
+|---|---|
+| the fork after stage 7 | 1556 passed |
+| the fork after stage 8 | **1556 passed** |
+
+No test changed: nothing asserts the version number.
+
+### Releasing
+
+The procedure is in one place, [REBASING.md, "Publishing"](REBASING.md#publishing): the version
+bump commit, the push, the TestPyPI dry run by `workflow_dispatch`, the tag, the GitHub release,
+and what the workflow does with it.

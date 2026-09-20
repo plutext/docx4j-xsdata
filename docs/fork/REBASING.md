@@ -142,7 +142,59 @@ $ git push origin docx4j-v26.2.1
 Tag naming: `docx4j-v<upstream tag>.<fork release>`. The fork release number counts
 up from 1 on each upstream tag and resets when the fork moves to a new upstream tag.
 Tags are never moved or deleted: the tagged commits stay reachable through the tag
-after the branch has been rewritten.
+after the branch has been rewritten. `__version__` in `docx4j_xsdata/__init__.py` is
+the same number without the prefix (`26.2.1`), and the publishing workflow refuses a
+release whose tag does not match it.
+
+### Releasing
+
+The distribution `docx4j-xsdata` is published to PyPI from GitHub Actions
+(`.github/workflows/publish.yml`) by **trusted publishing**: no API token is stored
+anywhere. The trusted publishers on pypi.org and test.pypi.org name the repository
+allowed to publish: owner `plutext`, repository `docx4j-xsdata`, workflow `publish.yml`,
+no environment. Renaming the workflow file breaks publishing until both settings are
+changed to match. What the release changes against upstream is
+[CHANGES.md](CHANGES.md), stage 8.
+
+A version once published is never reused, on PyPI or on TestPyPI, even after a
+deletion: a problem found after publishing ships as the next fork release
+(`26.2.2`). From a clean `docx4j` whose CI (`tests.yml`) has passed:
+
+1. **Bump the version**, the last commit before the tag: `__version__ = "26.2.1"` in
+   `docx4j_xsdata/__init__.py`, a section in `CHANGES.md`, the suite green
+   (`pytest tests -o addopts=""`), and the gate the suite cannot provide: the wheel
+   built with `python -m build`, `twine check --strict dist/*`, and docx4j-python
+   installed against that wheel in a clean virtual environment with its fast suite
+   green and its `codegen/generate.sh --check` byte identical (docx4j-python's
+   CR-007 section 3.5). Commit.
+2. **Push** `docx4j` (`git push origin docx4j`; `--force-with-lease` after a rebase).
+3. **Dry run on TestPyPI**: run `publish.yml` from the Actions tab (**Run workflow**
+   on `docx4j`). The `workflow_dispatch` path builds and uploads to TestPyPI, then
+   check <https://test.pypi.org/project/docx4j-xsdata/>: the version, the README
+   rendered, the wheel and the sdist listed. TestPyPI has the same never-reuse rule,
+   so a second dry run of the same version fails at the upload; that is expected.
+4. **Tag and push the tag**:
+
+   ```console
+   $ git tag -a docx4j-v26.2.1 -m "docx4j_xsdata on upstream v26.2, fork release 1"
+   $ git push origin docx4j-v26.2.1
+   ```
+
+5. **Publish**: create a GitHub release for the tag at
+   <https://github.com/plutext/docx4j-xsdata/releases/new> (choose the existing tag,
+   title `docx4j-v26.2.1`, notes from `CHANGES.md`'s stage, "Set as a pre-release"
+   unticked, then **Publish release**; a saved draft does not publish).
+
+Publishing the release runs `publish.yml`: it checks out the tag, fails unless the tag
+is `docx4j-v` plus `__version__`, builds the sdist and the wheel, runs `twine check`,
+and uploads to PyPI through OIDC. If the run fails before the upload, fix the problem
+on `docx4j`, delete the release and the tag (the version was not published, so the
+number is still free), and start again from step 1's commit. If only the upload fails
+(a publisher setting), fix the setting and **Re-run failed jobs**; the tag and the
+release stay.
+
+After the release, docx4j-python raises its dependency to the published version (its
+CR-007 Phase B); it is never published against an unreleased fork.
 
 ## Self-test
 
