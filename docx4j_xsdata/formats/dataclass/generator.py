@@ -66,6 +66,9 @@ class DataclassGenerator(AbstractGenerator):
             registry=packages, defer_imports=self.config.output.deferred_imports
         )
         package_dirs = set()
+        # The packages and modules this run writes, in the order it writes
+        # them; validate_imports imports exactly these (fork).
+        generated: list[str] = []
         defer_imports = self.config.output.deferred_imports
         root_dir = module_path(self.config.output.package)
         root_source = ""
@@ -75,6 +78,8 @@ class DataclassGenerator(AbstractGenerator):
             package_path = path.joinpath("__init__.py")
             src_code = self.render_package(cluster, module)
             package_dirs.add(str(path))
+            if module:  # a single-module output has its __init__ in the cwd
+                generated.append(module)
 
             if defer_imports and path == root_dir:
                 # Held back, the import order manifest is appended to it.
@@ -96,6 +101,7 @@ class DataclassGenerator(AbstractGenerator):
             src_code = self.render_module(resolver, cluster)
             eager_deps[cluster[0].target_module] = resolver.eager_modules()
             deferred_deps[cluster[0].target_module] = resolver.deferred_modules()
+            generated.append(cluster[0].target_module)
 
             yield GeneratorResult(
                 path=module_path_py,
@@ -114,10 +120,21 @@ class DataclassGenerator(AbstractGenerator):
             yield from self.ensure_packages(root_dir.parent)
 
         self.ruff_code(list(package_dirs))
-        self.validate_imports()
+        self.validate_imports(generated)
 
-    def validate_imports(self) -> None:
-        """Recursively import all generated packages.
+    def validate_imports(self, modules: list[str] | None = None) -> None:
+        """Import the generated packages and modules.
+
+        Fork: given the list of module names this run wrote, import exactly
+        those, so that hand-written modules living beside the generated ones
+        in the output package are not imported (upstream walks every
+        subpackage of the output package, and a hand-written module that
+        imports something a later step adds fails the run).
+
+        Args:
+            modules: The dotted names of the packages and modules written,
+                in the order they were written; None walks the whole output
+                package as upstream does.
 
         Raises:
             ImportError: On circular imports
@@ -135,7 +152,13 @@ class DataclassGenerator(AbstractGenerator):
 
         sys.path.insert(0, str(Path.cwd().absolute()))
         package = self.config.output.package
-        import_package(self.package_name(package))
+        if modules is None:
+            import_package(self.package_name(package))
+            return
+
+        for name in modules:
+            logger.debug(f"Importing: {name}")
+            importlib.import_module(name)
 
     @classmethod
     def render_import_order(

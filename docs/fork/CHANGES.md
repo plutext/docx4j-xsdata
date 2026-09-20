@@ -815,3 +815,30 @@ off by default, once per object, bottom up, the root last, `xsi:nil` firing noth
 Each oracle was checked by sabotage. **No upstream test was edited in this stage either.**
 
 `ruff check` and `ruff format --check` outside `tests/fixtures` and `tools`: clean.
+
+## Stage 7 — the generator's import check (done)
+
+2026-09-20, found by docx4j-python's schema refresh (its CR-001 section 14.10), the first
+regeneration since its CR-003 put hand-written packages beside the generated ones.
+
+### 17. `formats/dataclass/generator.py`: `validate_imports` imports what the run wrote
+
+Upstream validates its output by importing the output package and then **every** subpackage
+and module under it (`pkgutil.walk_packages`), which assumes the output package is
+exclusively generated. docx4j-python's `docx4j_py/` holds `model/`, `openpackaging/` and
+`docx/` beside the generated namespace packages, and `model/content/*.py` imports
+`docx4j_py.wml.el` at module level — a module that only exists after the *next* step of its
+build (`codegen/generate_el.py`) has run. So the walk raised `ImportError` on a package that
+was fine, and the transformer reported it as "Circular Dependencies Found".
+
+`render` now records the packages and modules it writes (the root package, each namespace
+package, each module, in the order written; a single-module output's root `__init__.py`
+in the cwd is skipped) and hands the list to `validate_imports(modules)`, which imports
+exactly those. `validate_imports()` with no argument is upstream's walk, unchanged, and the
+upstream test that mocks it still passes. `tests/fork/test_validate_imports.py`: a
+hand-written package beside a namespaces-layout output, importing a name the output does not
+provide, no longer fails the run and is left untouched and still broken; and a module the
+generator claims to have written but which cannot be imported still raises.
+
+Worth reporting upstream as a limitation rather than a bug: 1556 passed (the 1554 of stage 6
+plus these two).
