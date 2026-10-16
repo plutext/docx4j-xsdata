@@ -52,7 +52,8 @@ class SkippedReport:
     Attributes:
         items: The skipped elements and attributes. An element is
             recorded when it starts, an attribute when the element
-            that carries it ends.
+            that carries it ends, or starts if that element is of
+            simple type.
     """
 
     log: bool = True
@@ -95,16 +96,37 @@ class SkippedReport:
         if self.path:
             self.path.pop()
 
-    def add_attribute(self, qname: str, meta: Any) -> None:
+    def add_attribute(
+        self, qname: str, meta: Any, element: str | None = None
+    ) -> None:
         """Record an attribute the parser dropped.
 
         Args:
             qname: The attribute qualified name
-            meta: The class metadata of the element it appeared on
+            meta: The class metadata of the element it appeared on or,
+                for a simple-typed element, of the class whose field
+                the element fills
+            element: The qualified name of the simple-typed element that
+                carries the attribute. Such an element has no class of
+                its own and is reported when it starts, before the path
+                enters it, so it's named here. It is the node's
+                `parent_qname` and the path's last step before the
+                attribute.
         """
-        self.add(ATTRIBUTE, qname, meta, f"{self.location()}/@{qname}")
+        if element is None:
+            self.add(ATTRIBUTE, qname, meta, f"{self.location()}/@{qname}")
+        else:
+            path = f"{self.location()}/{element}/@{qname}"
+            self.add(ATTRIBUTE, qname, meta, path, parent_qname=element)
 
-    def add(self, kind: str, qname: str, meta: Any, path: str) -> None:
+    def add(
+        self,
+        kind: str,
+        qname: str,
+        meta: Any,
+        path: str,
+        parent_qname: str | None = None,
+    ) -> None:
         """Append a skipped node and warn about it.
 
         Args:
@@ -112,12 +134,15 @@ class SkippedReport:
             qname: The skipped qualified name
             meta: The class metadata of the parent element
             path: The document path of the skipped item
+            parent_qname: The parent's qualified name, when it is not
+                the meta's: a simple-typed element's
         """
+        parent = parent_qname or meta.qname
         self.items.append(
             SkippedNode(
                 kind=kind,
                 qname=qname,
-                parent_qname=meta.qname,
+                parent_qname=parent,
                 parent_class=meta.clazz.__name__,
                 path=path,
             )
@@ -128,7 +153,7 @@ class SkippedReport:
                 "Skipped unknown %s %s in %s",
                 kind,
                 qname,
-                meta.qname,
+                parent,
             )
 
     def location(self) -> str:

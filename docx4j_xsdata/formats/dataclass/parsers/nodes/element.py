@@ -607,11 +607,15 @@ class ElementNode(XmlNode):
             )
 
         if not var.any_type and not var.is_wildcard:
+            if attrs:
+                self.drop_simple_attrs(qname, attrs)
             return nodes.PrimitiveNode(self.meta, var, ns_map, self.config)
 
         datatype = DataType.from_qname(xsi_type) if xsi_type else None
         derived = var.is_wildcard
         if datatype:
+            if attrs:
+                self.drop_simple_attrs(qname, attrs)
             return nodes.StandardNode(
                 self.meta,
                 var,
@@ -669,6 +673,34 @@ class ElementNode(XmlNode):
             position=position,
             factory=self.context.class_type.any_element,
         )
+
+    def drop_simple_attrs(self, qname: str, attrs: dict) -> None:
+        """docx4j fork: account for the attributes of a simple-typed element.
+
+        An element of simple type binds to a field of this node's class and
+        has no class of its own, so nothing can hold its attributes. Upstream
+        drops them without a trace, even under `fail_on_unknown_attributes`.
+        Each is an unknown attribute here, as in `bind_attrs`: raise when the
+        config is strict, otherwise record it in the skipped report. `xsi:*`
+        attributes are exempt there and here.
+
+        Args:
+            qname: The qualified name of the simple-typed element
+            attrs: Its attributes
+
+        Raises:
+            ParserError: If the element carries an attribute and the
+                configuration is strict.
+        """
+        for name in attrs:
+            if target_uri(name) == Namespace.XSI.uri:
+                continue
+
+            if self.config.fail_on_unknown_attributes:
+                raise ParserError(f"Unknown attribute {qname}:{name}")
+
+            if self.config.skipped is not None:
+                self.config.skipped.add_attribute(name, self.meta, element=qname)
 
     def build_element_node(
         self,

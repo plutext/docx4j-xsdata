@@ -192,3 +192,112 @@ def test_the_document_still_parses() -> None:
     parser = XmlParser(config=config, handler=XmlEventHandler)
 
     assert parser.from_string(XML, Root) == Root(child=Child(value="a"))
+
+
+# An element of simple type binds to a field of its parent's class and has no
+# class of its own to hold attributes. Upstream drops them silently, strict or
+# not; here each one is an unknown attribute.
+
+
+@dataclass
+class Measured:
+    """A root whose children are of simple type."""
+
+    class Meta:
+        name = "measured"
+        namespace = NS
+
+    size: int | None = field(
+        default=None,
+        metadata={"type": "Element", "name": "size", "namespace": NS},
+    )
+    anything: object | None = field(
+        default=None,
+        metadata={"type": "Element", "name": "anything", "namespace": NS},
+    )
+
+
+XSI = "http://www.w3.org/2001/XMLSchema-instance"
+SIMPLE = f"""<?xml version="1.0"?>
+<measured xmlns="{NS}" xmlns:o="urn:other">
+  <size o:unit="cm">3</size>
+</measured>
+"""
+
+
+def parse_measured(source=SIMPLE, handler=XmlEventHandler, **kwargs) -> XmlParser:
+    """Parse a document of simple-typed children and return the parser."""
+    parser = XmlParser(config=ParserConfig(**kwargs), handler=handler)
+    parser.from_string(source, Measured)
+    return parser
+
+
+@pytest.mark.parametrize("handler", [XmlEventHandler, LxmlEventHandler])
+def test_an_attribute_on_a_simple_element_is_collected(handler) -> None:
+    parser = parse_measured(handler=handler, skipped_report=True, **LENIENT)
+
+    assert list(parser.skipped) == [
+        SkippedNode(
+            kind="attribute",
+            qname="{urn:other}unit",
+            parent_qname=f"{{{NS}}}size",
+            parent_class="Measured",
+            path=f"{{{NS}}}measured/{{{NS}}}size/@{{urn:other}}unit",
+        )
+    ]
+    assert parser.skipped.path == []
+
+
+def test_a_simple_element_still_binds_its_value() -> None:
+    config = ParserConfig(skipped_report=True, **LENIENT)
+    parser = XmlParser(config=config, handler=XmlEventHandler)
+
+    assert parser.from_string(SIMPLE, Measured) == Measured(size=3)
+
+
+def test_an_attribute_on_a_simple_element_is_logged(caplog) -> None:
+    with caplog.at_level(logging.WARNING, logger="docx4j_xsdata"):
+        parse_measured(skipped_report=True, **LENIENT)
+
+    assert [r.getMessage() for r in caplog.records] == [
+        f"Skipped unknown attribute {{urn:other}}unit in {{{NS}}}size"
+    ]
+
+
+def test_an_attribute_on_a_simple_element_raises_when_strict() -> None:
+    with pytest.raises(ParserError, match=r"Unknown attribute \{urn:fork\}size:"):
+        parse_measured(
+            skipped_report=True,
+            fail_on_unknown_properties=False,
+            fail_on_unknown_attributes=True,
+        )
+
+
+def test_an_attribute_on_a_simple_element_is_dropped_quietly_without_a_report() -> None:
+    parser = parse_measured(**LENIENT)
+
+    assert parser.skipped is None
+    assert parser.from_string(SIMPLE, Measured) == Measured(size=3)
+
+
+def test_xsi_attributes_on_a_simple_element_are_not_reported() -> None:
+    source = (
+        f'<measured xmlns="{NS}" xmlns:xsi="{XSI}">'
+        '<size xsi:schemaLocation="urn:fork fork.xsd">3</size></measured>'
+    )
+    parser = parse_measured(source=source, skipped_report=True, **LENIENT)
+
+    assert list(parser.skipped) == []
+
+
+def test_an_attribute_on_an_element_typed_by_xsi_type_is_collected() -> None:
+    source = (
+        f'<measured xmlns="{NS}" xmlns:xsi="{XSI}"'
+        ' xmlns:xs="http://www.w3.org/2001/XMLSchema">'
+        '<anything xsi:type="xs:int" note="x">7</anything></measured>'
+    )
+    parser = parse_measured(source=source, skipped_report=True, **LENIENT)
+
+    assert [(x.qname, x.parent_qname, x.path) for x in parser.skipped] == [
+        ("note", f"{{{NS}}}anything", f"{{{NS}}}measured/{{{NS}}}anything/@note")
+    ]

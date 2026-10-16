@@ -976,3 +976,57 @@ No test changed: nothing asserts the version number.
 The procedure is in one place, [REBASING.md, "Publishing"](REBASING.md#publishing): the version
 bump commit, the push, the TestPyPI dry run by `workflow_dispatch`, the tag, the GitHub release,
 and what the workflow does with it.
+
+## Stage 9 — attributes on a simple-typed element (done)
+
+docx4j-python CR-001 section 14.12 and its upstream report 18. Found 2026-10-14 while measuring
+Excel's histogram bins against [MS-ODRAWXML]: `<cx:binSize val="10"/>` met a schema that typed
+`binSize` as an `xsd:double` element, the `val` vanished, the skipped-content report stayed empty,
+and strict parsing did not raise.
+
+### 22. `parsers/nodes/element.py`: an attribute on a simple-typed element is an unknown attribute
+
+An element of simple type binds to a field of its parent's class and has no class of its own, so
+nothing can hold its attributes. `ElementNode.build_node` returns a `PrimitiveNode` for it (or a
+`StandardNode`, for a value whose type `xsi:type` chose), and neither node is given the element's
+attributes; only `ElementNode.bind_attrs` looks at attributes, so these were dropped with no
+trace, **even under `fail_on_unknown_attributes=True`**.
+
+`ElementNode.drop_simple_attrs(qname, attrs)` now runs before either node is returned, when the
+element carries attributes. It treats each as `bind_attrs` treats an unknown attribute:
+
+- `xsi:*` attributes are exempt, there and here;
+- under `fail_on_unknown_attributes`, `ParserError("Unknown attribute {element}:{attribute}")`;
+- otherwise, with the report on, an `attribute` item.
+
+The item's `parent_qname` is the simple element's own name, its `parent_class` the class whose
+field the element fills, and its `path` ends `.../{element}/@{attribute}`. `SkippedReport.add_attribute`
+gains an `element` argument for this: such an element is reported when it starts, before the
+report's path has entered it. The value itself still binds as before.
+
+**Off is free**: the check is one truth test of the attribute dict per simple element, and the
+usual simple element has none.
+
+### Verified against the real project
+
+docx4j-python's full suite, 2,035 passed and 8 skipped, and `scripts/roundtrip.py`, 50 of 50 parts
+canonically identical with nothing skipped, both against this stage. A survey of 754 packages
+(docx4j-python's `samples/` and `tests/fixtures/`, docx4j-core-tests' and docx4j-core-ts's test
+resources; docx, pptx and xlsx, every part unmarshalled) reports exactly the same 623 skipped items
+in 84 kinds with and without this stage, all of them the Strict-namespace content docx4j-python
+knowingly does not bind. No document there meets the shape; the stage closes the gap rather than
+changing any result.
+
+### Test status
+
+`pytest tests -o addopts=""`, less the four modules that need `requests`, on CPython 3.14.6:
+
+| | result |
+|---|---|
+| the fork after stage 8 | 1556 passed |
+| the fork after stage 9 | **1564 passed** |
+
+Eight new tests in `tests/fork/test_skipped_report.py`: the attribute collected under both event
+handlers, with its path; logged; raising when strict; dropped quietly with no report; `xsi:*`
+exempt; the value still bound; and the `xsi:type` case. The five that test the new behaviour fail
+without it.
