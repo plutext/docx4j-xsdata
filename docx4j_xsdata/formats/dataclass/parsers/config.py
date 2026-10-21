@@ -4,6 +4,7 @@ from typing import Any
 
 from docx4j_xsdata.formats.dataclass.parsers.skipped import SkippedReport
 from docx4j_xsdata.formats.types import T
+from docx4j_xsdata.models.datatype import LEXICAL_CLASSES
 
 
 def default_class_factory(cls: type[T], params: dict[str, Any]) -> T:
@@ -70,6 +71,15 @@ class ParserConfig:
         skipped_report: docx4j fork: collect the elements and attributes
             lenient parsing drops. True for a new report, or a
             `SkippedReport` instance to configure it or to share it.
+        lexical_types: docx4j fork: the value types, of `float` and `bytes`,
+            whose values keep the spelling they were read with. Where the
+            converter would write a value of one of them in another spelling
+            than its source's (``202`` as ``202.0``, a base64 value Word wraps
+            at 76 characters on one line), the value bound is a subclass of
+            its type that carries the source text (`XmlLexicalFloat`,
+            `XmlLexicalBytes`), and the serializer writes that text. A value
+            the converter spells as its source does is bound plain, as is
+            every value of the other types. Off (empty) by default.
 
     Attributes:
         skipped: docx4j fork: the skipped content report, or None when
@@ -91,6 +101,7 @@ class ParserConfig:
     wildcard_class: Callable[[str, tuple[type, ...]], type | None] | None = None
     wildcard_class_for: frozenset[str] = frozenset()
     skipped_report: InitVar[bool | SkippedReport] = False
+    lexical_types: frozenset[type] = frozenset()
     skipped: SkippedReport | None = field(
         init=False, default=None, compare=False, repr=False
     )
@@ -101,3 +112,10 @@ class ParserConfig:
             self.skipped = SkippedReport()
         elif isinstance(skipped_report, SkippedReport):
             self.skipped = skipped_report
+        unsupported = set(self.lexical_types) - set(LEXICAL_CLASSES)
+        if unsupported:
+            names = ", ".join(sorted(tp.__name__ for tp in unsupported))
+            raise ValueError(
+                f"lexical_types: no lexical class for {names}; "
+                f"supported: {', '.join(tp.__name__ for tp in LEXICAL_CLASSES)}"
+            )

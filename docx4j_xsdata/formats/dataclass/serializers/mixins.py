@@ -22,6 +22,7 @@ from docx4j_xsdata.formats.dataclass.serializers.config import (
     BOOL_WORDS,
     SerializerConfig,
 )
+from docx4j_xsdata.models.datatype import LEXICAL_VALUE_CLASSES
 from docx4j_xsdata.models.enums import DataType, Namespace, QNames
 from docx4j_xsdata.utils import collections, namespaces
 from docx4j_xsdata.utils.constants import EMPTY_MAP
@@ -379,6 +380,10 @@ class EventHandler(abc.ABC):
         """
         if data is None or isinstance(data, str):
             return data
+
+        # docx4j fork: see `encode_primitive`.
+        if data.__class__ in LEXICAL_VALUE_CLASSES:
+            return data.lexical
 
         if isinstance(data, list) and not data:
             return None
@@ -1240,6 +1245,11 @@ class EventGenerator:
         """
         if isinstance(value, (str, QName)) or var is None:
             return value
+
+        # docx4j fork: a value that kept its source's spelling is written in
+        # it. See `ParserConfig.lexical_types`.
+        if value.__class__ in LEXICAL_VALUE_CLASSES:
+            return value.lexical
 
         if collections.is_array(value):
             return [cls.encode_primitive(v, var, bool_format) for v in value]

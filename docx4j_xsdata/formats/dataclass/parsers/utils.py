@@ -8,6 +8,7 @@ from docx4j_xsdata.exceptions import ConverterError, ConverterWarning, ParserErr
 from docx4j_xsdata.formats.converter import QNameConverter, converter
 from docx4j_xsdata.formats.dataclass.models.elements import XmlMeta, XmlVar
 from docx4j_xsdata.formats.dataclass.parsers.config import ParserConfig
+from docx4j_xsdata.models.datatype import LEXICAL_CLASSES
 from docx4j_xsdata.models.enums import QNames
 from docx4j_xsdata.utils import collections, constants, text
 from docx4j_xsdata.utils.namespaces import build_qname
@@ -131,12 +132,22 @@ class ParserUtils:
             instance = plan[1]
             if instance is not None:
                 try:
-                    return instance.deserialize(
+                    result = instance.deserialize(
                         value, data_type=plan[2], ns_map=ns_map, format=var.format
                     )
                 except ConverterError:
                     pass  # upstream's path below builds the message and warns
+                else:
+                    # docx4j fork: plan[3] says the type may keep a spelling
+                    # (`ParserConfig.lexical_types`), so the usual value pays
+                    # one tuple index for the option.
+                    if plan[3] and plan[2] in config.lexical_types:
+                        return cls.keep_lexical(
+                            result, value, var.format, config.lexical_types
+                        )
+                    return result
 
+        source = value
         try:
             value = cls.parse_value(
                 value=value,
@@ -155,11 +166,54 @@ class ParserUtils:
                 raise ParserError(message)
 
             warnings.warn(message, ConverterWarning)
+        else:
+            if config.lexical_types:
+                value = cls.keep_lexical(
+                    value, source, format or var.format, config.lexical_types
+                )
 
         return value
 
     @classmethod
-    def build_converter_plan(cls, var: XmlVar) -> tuple[int, Any, Any]:
+    def keep_lexical(
+        cls,
+        value: Any,
+        source: Any,
+        format: str | None,
+        lexical_types: frozenset[type],
+    ) -> Any:
+        """docx4j fork: a value that keeps its source's spelling, if it needs to.
+
+        See `ParserConfig.lexical_types`. Only a scalar of a type asked for,
+        read from text, is considered; a list of tokens, a value of another
+        type, and a value the converter spells as its source does are
+        returned as they are.
+
+        Args:
+            value: The converted value
+            source: The text it was converted from
+            format: The var's format (``base64``, ``base16``), for bytes
+            lexical_types: The types asked for
+
+        Returns:
+            The value, or its lexical subclass carrying `source`.
+        """
+        tp = value.__class__
+        if tp not in lexical_types or not isinstance(source, str):
+            return value
+
+        try:
+            spelled = converter.serialize(value, format=format)
+        except ConverterError:
+            return value
+
+        if spelled == source:
+            return value
+
+        return LEXICAL_CLASSES[tp](value, source)
+
+    @classmethod
+    def build_converter_plan(cls, var: XmlVar) -> tuple[int, Any, Any, bool]:
         """Resolve the converter for a var with a single declared type.
 
         docx4j fork: the answer `converter.deserialize` works out for every
@@ -172,7 +226,9 @@ class ParserUtils:
             var: The xml var instance
 
         Returns:
-            The generation, the converter instance or None, and the data type.
+            The generation, the converter instance or None, the data type,
+            and whether a value of that type may keep its spelling
+            (`ParserConfig.lexical_types`, stage 12).
         """
         types = var.types
         if len(types) == 1:
@@ -182,11 +238,12 @@ class ParserUtils:
                     converter.generation,
                     converter.type_converter(data_type),
                     data_type,
+                    data_type in LEXICAL_CLASSES,
                 )
             except ConverterError:
                 pass
 
-        return converter.generation, None, None
+        return converter.generation, None, None, False
 
     @classmethod
     def parse_value(

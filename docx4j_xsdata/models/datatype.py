@@ -710,3 +710,88 @@ class XmlBase64Binary(bytes):
     This type can be used with xs:anyType fields that don't have a
     format property to specify the target output format.
     """
+
+
+# docx4j fork (stage 12, item 28): values that keep the spelling they were read
+# with. See `ParserConfig.lexical_types`.
+
+
+class XmlLexicalFloat(float):
+    """docx4j fork: a float that keeps the spelling it was read with.
+
+    The parser makes one, with `ParserConfig(lexical_types=...)` naming
+    `float`, where the converter would write the value in another spelling
+    than its source's: VML's ``o:spt="202"`` would be written ``202.0``. It is
+    a float in every other way, equal to and hashed as the plain value, and
+    the serializer writes `lexical`. Arithmetic, or a value set in code, gives
+    a plain float, written in the converter's spelling.
+
+    Args:
+        value: The value
+        lexical: The source's spelling of it
+    """
+
+    __slots__ = ("lexical",)
+
+    lexical: str
+
+    def __new__(cls, value: float, lexical: str) -> "XmlLexicalFloat":
+        """Create the value, and keep its spelling."""
+        obj = super().__new__(cls, value)
+        obj.lexical = lexical
+        return obj
+
+    def __reduce__(self) -> tuple:
+        """Pickle the value with its spelling."""
+        return self.__class__, (float(self), self.lexical)
+
+    def __copy__(self) -> "XmlLexicalFloat":
+        """Return self: the value is immutable."""
+        return self
+
+    def __deepcopy__(self, memo: dict) -> "XmlLexicalFloat":
+        """Return self: the value is immutable."""
+        return self
+
+
+class XmlLexicalBytes(bytes):
+    """docx4j fork: a base64Binary or hexBinary value that keeps the spelling it was read with.
+
+    The parser makes one, with `ParserConfig(lexical_types=...)` naming
+    `bytes`, where the converter would write the value in another spelling
+    than its source's: Word wraps VML's ``o:gfxdata`` at 76 characters, which
+    the converter would write on one line. It is the bytes in every other way,
+    and the serializer writes `lexical`. A value set in code is plain bytes,
+    written in the converter's spelling.
+
+    Args:
+        value: The value
+        lexical: The source's spelling of it
+    """
+
+    lexical: str
+
+    def __new__(cls, value: bytes, lexical: str) -> "XmlLexicalBytes":
+        """Create the value, and keep its spelling."""
+        obj = super().__new__(cls, value)
+        obj.lexical = lexical
+        return obj
+
+    def __reduce__(self) -> tuple:
+        """Pickle the value with its spelling."""
+        return self.__class__, (bytes(self), self.lexical)
+
+    def __copy__(self) -> "XmlLexicalBytes":
+        """Return self: the value is immutable."""
+        return self
+
+    def __deepcopy__(self, memo: dict) -> "XmlLexicalBytes":
+        """Return self: the value is immutable."""
+        return self
+
+
+#: docx4j fork: the value type each lexical class keeps the spelling of.
+LEXICAL_CLASSES: dict[type, type] = {float: XmlLexicalFloat, bytes: XmlLexicalBytes}
+
+#: docx4j fork: the lexical classes, which the serializer writes by their `lexical`.
+LEXICAL_VALUE_CLASSES: frozenset[type] = frozenset(LEXICAL_CLASSES.values())

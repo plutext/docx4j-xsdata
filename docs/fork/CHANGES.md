@@ -1234,3 +1234,69 @@ handlers) and `test_serializer_element_names.py` (9: empty by default; the type 
 table, the element name with it and no `xsi:type`; a field's name wins; the root; the tree
 serializer agrees; a class not in the table; written and read back through item 25). Of the 19 for
 items 25 and 26, 17 fail without them; the other two pin the behaviour without the options.
+
+## Stage 12 — docx4j-python CR-012 Phase C (done)
+
+One change asked for by docx4j-python's CR-012 Phase C, which puts VML in its model (docx4j's
+five VML schemas). VML is the first vocabulary that model reads with an `xsd:float` attribute and
+an `xsd:base64Binary` one in a spelling the converter does not write: `o:spt="202"` on every
+`v:shapetype`, which `FloatConverter` writes `202.0`, and `o:gfxdata`, which Word wraps at 76
+characters (`&#xA;` between the lines) and `BytesConverter` writes on one line. Both are valid
+lexical forms of the same value, and docx4j writes them the same way (its CR-048, D3). But a
+docx4j-python part read and saved unchanged must be canonically identical to its source, and over
+its 422-document corpus 97 `o:spt` and 54 `o:gfxdata` (on `v:shape`, `v:oval` and `v:rect`), in 50
+parts of 41 documents, were the only differences typing VML made.
+
+### 28. `parsers/` and `serializers/`: `ParserConfig(lexical_types=...)`, values that keep their spelling
+
+In `models/datatype.py`, `parsers/config.py`, `parsers/utils.py`, `models/elements.py` and
+`serializers/mixins.py`. One new option, off (empty) by default:
+
+- `lexical_types: frozenset[type]`, of `float` and `bytes` (any other type raises `ValueError`).
+  Where the converter would write a value of one of them in another spelling than the source's,
+  `ParserUtils.parse_var` binds a subclass of the type that carries the source text:
+  `XmlLexicalFloat(float)` (slotted) and `XmlLexicalBytes(bytes)`, each with `lexical`, equal to
+  and hashed as the plain value, pickled, copied and deep-copied with its spelling (an immutable
+  value: the copy is itself). A value the converter spells as its source does is bound plain, as
+  is every value of another type, a list of tokens, and a value that fails to convert (reported
+  as before).
+- `encode_primitive` and `encode_data` write a lexical value's `lexical`. Arithmetic on one, or a
+  value set in code, gives a plain value, written in the converter's spelling.
+
+The converter plan of stage 6 (item 14) gains a fourth entry, whether the var's single type may
+keep its spelling, so that on the fast path a value of any other type pays one tuple index for the
+option; the slow path (several types, tokens) checks the option once per value.
+
+**Off is free**, and on is close to it: docx4j-python's `Symbols.docx` (771 KB, no VML) parses in
+the same time with the option on and off, interleaved, 15 runs each (205 ms median both ways, 200
+and 201 ms minimum).
+
+**Tests:** `tests/fork/test_lexical_types.py`, twelve: off by default, the converter's spelling;
+with the option, each value keeps its spelling, under both event handlers (an `xsd:float` attribute
+and element, a base64 value wrapped across lines, a hex value in lower case); a lexical value is
+its value (equality, hash, `repr`, the whole object equal to the plain parse); a value the
+converter spells as its source does is plain; only the types asked for; other types and tokens
+untouched; a value changed or set in code takes the converter's spelling; copied and pickled with
+its spelling; the tree serializer writes it too; an unsupported type refused; a value that does
+not convert reported as before. Ten fail without the stage (the module does not import: the
+option and the classes do not exist); the first and the last pin the behaviour without the option.
+
+### Verified against the real project
+
+docx4j-python's CR-012 Phase C survey (`scripts/vml_census.py`) over 422 documents and 2,746
+WordprocessingML parts, typed VML with the option on: no newly skipped item, no new canonical
+difference, and the only byte differences attribute order (equal in C14N); without the option,
+50 parts gained a difference (`o:spt` and `o:gfxdata`). The option also keeps
+`docx4j-core-ts/test/fixtures/onoff/pandoc-code.docx`'s lower-case `w:color` values (an
+`ST_HexColor`, hexBinary), which the converter wrote in upper case: that part is canonically
+identical to its source now, for the first time. docx4j-python's whole suite and
+`scripts/roundtrip.py` (50 of 50) with the option on.
+
+### Test status
+
+`PATH=$PWD/.venv/bin:$PATH .venv/bin/python -m pytest tests -o addopts=""` on CPython 3.14.6:
+
+| | result |
+|---|---|
+| the fork after stage 11 | 1656 passed, 1 skipped |
+| after item 28 | **1668 passed, 1 skipped** |
