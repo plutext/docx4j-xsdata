@@ -1,7 +1,7 @@
 import sys
 from unittest import TestCase
 
-from docx4j_xsdata.models.xsd import Group
+from docx4j_xsdata.models.xsd import Group, compositor_id
 
 
 class GroupTests(TestCase):
@@ -27,4 +27,6 @@ class GroupTests(TestCase):
 
     def test_get_restrictions(self) -> None:
         obj = Group(min_occurs=1, max_occurs=2)
-        self.assertEqual({"path": [("g", id(obj), 1, 2)]}, obj.get_restrictions())
+        self.assertEqual(
+            {"path": [("g", compositor_id(obj), 1, 2)]}, obj.get_restrictions()
+        )

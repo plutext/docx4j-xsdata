@@ -1082,3 +1082,48 @@ names, no calls; typed and wildcard elements both seen, in document order; the m
 element's and its ancestors' declarations; only the names asked for; after `on_bind`; a value
 replaced in place; and the pure Python event handler's maps the same as lxml's. All nine fail
 without the stage (the options do not exist).
+
+## Stage 11 — docx4j-python CR-012 Phase A (in progress)
+
+Two changes found by, or asked for by, docx4j-python's CR-012 Phase A (`mc:AlternateContent` kept at
+block, row and cell level, as docx4j's CR-051 phase 1 does). The first is a generator defect the
+phase's schema refresh exposed; the second is the parser change the phase needs.
+
+### 24. `models/xsd.py`: a compositor's identity is never reused
+
+The generator tells one `xs:sequence`, `xs:choice`, `xs:all`, `xs:group` or `xs:alternative` from
+another by an integer in each attr's restriction path, and `CreateCompoundFields` merges into one
+compound field every attr of a class whose `choice` integer is the same. Upstream takes the integer
+from `id(self)`. An XSD model object is freed once its schema has been mapped, and CPython hands its
+address to the next object of the same size, so a compositor of a later schema file can take the
+integer of one of an earlier file. Two unrelated choices of one class then merge into one field,
+whenever the allocator happens to line them up. `AddAttributeSubstitutions.prepare_substituted`
+drew its choice integers from `id(attr)`, in the same space.
+
+**Found** on docx4j-python's schema refresh to docx4j `2853b7280` (its CR-012 section 9), which
+adds three element references to `wml/wml.xsd` and touches no DrawingML schema:
+`codegen/generate.sh --check` failed, because `CT_TextCharacterProperties`' underline choice
+(`uLnTx` | `uLn`, `dml-textCharacter.xsd`) merged with the fill choice before it
+(`EG_FillProperties`, `dml-shapeProperties.xsd`) into one field, and only when the fork's bytecode
+was already cached, which changes the allocation pattern. Deleting `__pycache__` gave the right
+output and a cached run the wrong one, so the check's second run disagreed with its first; this is
+also the likeliest explanation of the earlier "stale bytecode" regeneration diff docx4j-python's
+sessions worked around by deleting the cache.
+
+**The change:** `compositor_id(obj)` assigns each compositor an integer from a process-wide counter
+the first time its restrictions are read, and keeps it on the object, so it is stable for the
+object's life and never shared with another object, alive or freed. The five compositors'
+`get_restrictions` and `prepare_substituted` (through `next_compositor_id()`) use it. Integers are
+only ever compared for equality, so a generation that met no collision is byte identical: docx4j-
+python's output is its committed output, cached or not.
+
+**Upstream tests edited:** seven assertions in six modules expected `id(obj)` in a path
+(`tests/models/xsd/test_all.py`, `test_alternative.py`, `test_choice.py`, `test_group.py`,
+`test_sequence.py`, `tests/codegen/mappers/test_schema.py`) or `id(attr)` as a substituted choice
+(`tests/codegen/handlers/test_add_attribute_substitutions.py`); each now expects the compositor's
+integer. They pinned the defect.
+
+**Tests:** `tests/fork/test_compositor_identity.py`, twelve: for each of the four compositor types,
+fifty made and freed in turn never share an integer, and one keeps its own; two live ones differ;
+the path's shape; a substituted attr's choice is never reused; and a generation of two groups'
+choices in one class keeps two fields. The five reuse tests fail without the change.

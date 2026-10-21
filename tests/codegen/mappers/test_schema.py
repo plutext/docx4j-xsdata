@@ -24,6 +24,7 @@ from docx4j_xsdata.models.xsd import (
     Sequence,
     SimpleContent,
     SimpleType,
+    compositor_id,
 )
 from docx4j_xsdata.utils.namespaces import build_qname
 from docx4j_xsdata.utils.testing import (
@@ -239,7 +240,10 @@ class SchemaMapperTests(FactoryTestCase):
 
         _child, restrictions = next(children)
         expected = Restrictions(
-            path=[("s", id(complex_type.sequence), 0, 3), ("c", id(choice), 1, 1)]
+            path=[
+                ("s", compositor_id(complex_type.sequence), 0, 3),
+                ("c", compositor_id(choice), 1, 1),
+            ]
         )
         self.assertEqual(expected, restrictions)
 

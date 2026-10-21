@@ -1,3 +1,4 @@
+import itertools
 import sys
 import textwrap
 from collections.abc import Iterator
@@ -26,6 +27,41 @@ from docx4j_xsdata.utils import text
 from docx4j_xsdata.utils.collections import unique_sequence
 from docx4j_xsdata.utils.constants import DEFAULT_ATTR_NAME
 from docx4j_xsdata.utils.namespaces import clean_uri
+
+# docx4j fork: the integer that identifies a compositor in a restriction path.
+# Upstream uses ``id(self)``, and an XSD model object is freed once its schema
+# has been mapped, so CPython gives its address to a later object: a choice of
+# a later schema file could take the integer of a choice of an earlier one, and
+# ``CreateCompoundFields`` then merged two unrelated choices of one class into
+# one field, whenever the allocator lined them up (docx4j-python's
+# ``generate.sh --check``, 2026-10-21). A counter, read once per object, is
+# never reused. ``AddAttributeSubstitutions.prepare_substituted`` draws from it
+# too, since its choice integers share the same space.
+_COMPOSITOR_IDS = itertools.count(1)
+_COMPOSITOR_ID = "_docx4j_compositor_id"
+
+
+def next_compositor_id() -> int:
+    """Return a restriction-path integer no other compositor has had.
+
+    docx4j fork: from a process-wide counter.
+    """
+    return next(_COMPOSITOR_IDS)
+
+
+def compositor_id(obj: Anything) -> int:
+    """Return the integer that identifies `obj` in a restriction path.
+
+    docx4j fork: assigned by :func:`next_compositor_id` the first time it is
+    asked for, and kept on the object, so it is stable for the object's life
+    and never shared with another object, alive or freed.
+    """
+    try:
+        return obj.__dict__[_COMPOSITOR_ID]
+    except KeyError:
+        value = obj.__dict__[_COMPOSITOR_ID] = next_compositor_id()
+        return value
+
 
 docstring_serializer = XmlSerializer(
     config=SerializerConfig(indent="  ", xml_declaration=False)
@@ -419,7 +455,7 @@ class All(AnnotationBase):
     def get_restrictions(self) -> dict[str, Anything]:
         """Return the restrictions dictionary of this element."""
         return {
-            "path": [("a", id(self), self.min_occurs, self.max_occurs)],
+            "path": [("a", compositor_id(self), self.min_occurs, self.max_occurs)],
         }
 
 
@@ -442,7 +478,7 @@ class Sequence(AnnotationBase):
     def get_restrictions(self) -> dict[str, Anything]:
         """Return the restrictions dictionary of this element."""
         return {
-            "path": [("s", id(self), self.min_occurs, self.max_occurs)],
+            "path": [("s", compositor_id(self), self.min_occurs, self.max_occurs)],
         }
 
 
@@ -465,7 +501,7 @@ class Choice(AnnotationBase):
     def get_restrictions(self) -> dict[str, Anything]:
         """Return the restrictions dictionary of this element."""
         return {
-            "path": [("c", id(self), self.min_occurs, self.max_occurs)],
+            "path": [("c", compositor_id(self), self.min_occurs, self.max_occurs)],
         }
 
 
@@ -499,7 +535,7 @@ class Group(AnnotationBase):
     def get_restrictions(self) -> dict[str, Anything]:
         """Return the restrictions dictionary of this element."""
         return {
-            "path": [("g", id(self), self.min_occurs, self.max_occurs)],
+            "path": [("g", compositor_id(self), self.min_occurs, self.max_occurs)],
         }
 
 
@@ -856,7 +892,7 @@ class Alternative(AnnotationBase):
     def get_restrictions(self) -> dict[str, Anything]:
         """Return the restrictions dictionary of this element."""
         return {
-            "path": [("alt", id(self), 0, 1)],
+            "path": [("alt", compositor_id(self), 0, 1)],
         }
 
 

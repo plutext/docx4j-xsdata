@@ -1,7 +1,7 @@
 import sys
 from unittest import TestCase
 
-from docx4j_xsdata.models.xsd import All
+from docx4j_xsdata.models.xsd import All, compositor_id
 
 
 class AllTests(TestCase):
@@ -16,4 +16,6 @@ class AllTests(TestCase):
 
     def test_get_restrictions(self) -> None:
         obj = All(min_occurs=1, max_occurs=2)
-        self.assertEqual({"path": [("a", id(obj), 1, 2)]}, obj.get_restrictions())
+        self.assertEqual(
+            {"path": [("a", compositor_id(obj), 1, 2)]}, obj.get_restrictions()
+        )

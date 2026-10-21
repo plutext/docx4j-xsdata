@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from docx4j_xsdata.models.xsd import Alternative
+from docx4j_xsdata.models.xsd import Alternative, compositor_id
 
 
 class AlternativeTests(TestCase):
@@ -23,4 +23,6 @@ class AlternativeTests(TestCase):
 
     def test_get_restrictions(self) -> None:
         obj = Alternative()
-        self.assertEqual({"path": [("alt", id(obj), 0, 1)]}, obj.get_restrictions())
+        self.assertEqual(
+            {"path": [("alt", compositor_id(obj), 0, 1)]}, obj.get_restrictions()
+        )

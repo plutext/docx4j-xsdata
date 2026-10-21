@@ -137,10 +137,12 @@ class AddAttributeSubstitutionsTests(FactoryTestCase):
         self.processor.prepare_substituted(attr)
 
         self.assertEqual(0, attr.restrictions.min_occurs)
-        self.assertEqual(id(attr), attr.restrictions.choice)
+        # docx4j fork: the choice is a fresh integer, not id(attr)
+        choice = attr.restrictions.choice
+        self.assertIsInstance(choice, int)
         self.assertEqual(2, len(attr.restrictions.path))
-        self.assertEqual(("c", id(attr), 1, 1), attr.restrictions.path[-1])
+        self.assertEqual(("c", choice, 1, 1), attr.restrictions.path[-1])
 
         attr.restrictions.choice = 1
         self.processor.prepare_substituted(attr)
-        self.assertEqual(("c", id(attr), 1, 1), attr.restrictions.path[-1])
+        self.assertEqual(("c", choice, 1, 1), attr.restrictions.path[-1])

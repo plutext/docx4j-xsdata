@@ -4,6 +4,7 @@ from docx4j_xsdata.codegen.mixins import ContainerInterface, RelativeHandlerInte
 from docx4j_xsdata.codegen.models import Attr, AttrType, Class
 from docx4j_xsdata.codegen.utils import ClassUtils
 from docx4j_xsdata.models.enums import Tag
+from docx4j_xsdata.models.xsd import next_compositor_id
 from docx4j_xsdata.utils import collections
 
 
@@ -100,7 +101,9 @@ class AddAttributeSubstitutions(RelativeHandlerInterface):
         """
         attr.restrictions.min_occurs = 0
         if not attr.restrictions.choice:
-            choice = id(attr)
+            # docx4j fork: from the compositors' counter, not ``id(attr)``,
+            # which a later object may share (``models.xsd.compositor_id``).
+            choice = next_compositor_id()
             attr.restrictions.choice = choice
             attr.restrictions.path.append(("c", choice, 1, 1))
 
