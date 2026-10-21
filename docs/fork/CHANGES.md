@@ -1083,11 +1083,13 @@ element's and its ancestors' declarations; only the names asked for; after `on_b
 replaced in place; and the pure Python event handler's maps the same as lxml's. All nine fail
 without the stage (the options do not exist).
 
-## Stage 11 — docx4j-python CR-012 Phase A (done)
+## Stage 11 — docx4j-python CR-012 Phases A and A2 (done)
 
 Two changes found by, or asked for by, docx4j-python's CR-012 Phase A (`mc:AlternateContent` kept at
 block, row and cell level, as docx4j's CR-051 phase 1 does). The first is a generator defect the
-phase's schema refresh exposed; the second is the parser change the phase needs.
+phase's schema refresh exposed; the second is the parser change the phase needs. Phase A2 (row and
+cell level read, as docx4j's CR-051 phase 2 does) asks item 25's hook for two more names and needs
+no code here; item 27 pins what that relies on.
 
 ### 24. `models/xsd.py`: a compositor's identity is never reused
 
@@ -1173,6 +1175,36 @@ measured).
 which is the root and a wildcard's typed child, and only when one is set. docx4j-python names the
 four `w:sdt` classes; its CR-012 Phase B extends the table to the root elements it registers.
 
+### 27. `tests/fork/`: item 25's hook for a name no global element declares (tests only)
+
+docx4j-python's CR-012 Phase A2 asks item 25's hook for `w:tr` and `w:tc` as well as `w:sdt`, so that
+a row-level branch's rows and a cell-level branch's cells are bound as the table or the row binds
+them (docx4j binds them so by name, its CR-051 phase 2). `w:tc` is a new shape for the hook:
+`CT_Tc` is declared only inside `CT_Row` and the row's controls, so there is no global element at
+all, and the lookup by name leaves the cell an `AnyElement` tree (lossless, nothing skipped, but
+invisible to a reader of typed cells), where `w:sdt` found a global element of the wrong class.
+`w:tr` is global as the class a table binds it to, and is asked about so that both are bound by one
+rule.
+
+**No code changed.** The hook, its ancestors and item 26's table already do what is needed, and the
+choice of names is the caller's (`docx4j_py.runtime.BRANCH_CHILD_NAMES`). The tests pin the
+behaviour the caller now relies on, which item 25's tests did not reach:
+
+- without the hook, a name no global element declares stays a wildcard tree and nothing is
+  skipped;
+- with it, the name is typed as its container binds it;
+- a child the hook typed is itself an enclosing class of what it holds (`ElementNode.parent` set
+  through `build_element_node` on the wildcard path), so a branch nested in it is bound by it: the
+  ancestors seen are `(Choice, Alternate, Cell, Choice, Alternate, Row, Table)`;
+- a name with a global element is asked about before the lookup by name, and the hook's class
+  wins;
+- item 26's table writes the typed children back under their elements' names, the document
+  byte for byte, and the result reads back equal.
+
+**Tests:** `tests/fork/test_wildcard_class_local_names.py`, five. All pass on the stage-11 code
+(they pin, and fail only if the behaviour regresses). docx4j-python's `docs/UPSTREAM.md` report 23
+records the shape as report 21's second use.
+
 ### Verified against the real project (items 24 to 26)
 
 docx4j-python's schema refresh to docx4j `2853b7280` and regeneration: `generate.sh --check`
@@ -1191,7 +1223,8 @@ and `SdtBlock` (`tests/openpackaging/test_mce_levels.py`).
 |---|---|
 | the fork after stage 10 | 1620 passed, 1 skipped |
 | after item 24 | 1632 passed, 1 skipped |
-| after items 25 and 26 | **1651 passed, 1 skipped** |
+| after items 25 and 26 | 1651 passed, 1 skipped |
+| after item 27 | **1656 passed, 1 skipped** |
 
 New: `tests/fork/test_compositor_identity.py` (12, item 24), `test_parser_wildcard_class.py` (10:
 off by default; without the hook the name alone chooses and a row's content is lost; with it each
