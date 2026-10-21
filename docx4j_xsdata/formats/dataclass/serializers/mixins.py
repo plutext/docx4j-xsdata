@@ -629,6 +629,14 @@ class EventGenerator:
             globalns=self.config.globalns,
         )
         nillable = nillable or meta.nillable
+        if not qname:
+            # docx4j fork: no field names this object (a wildcard holds it, or
+            # it is the root), so the caller's table may. See
+            # `SerializerConfig.element_names`.
+            names = self.config.element_names
+            if names:
+                qname = names.get(obj.__class__)
+
         if qname:
             namespace = namespaces.target_uri(qname)
         else:

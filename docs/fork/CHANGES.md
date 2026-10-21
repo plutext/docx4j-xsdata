@@ -1083,7 +1083,7 @@ element's and its ancestors' declarations; only the names asked for; after `on_b
 replaced in place; and the pure Python event handler's maps the same as lxml's. All nine fail
 without the stage (the options do not exist).
 
-## Stage 11 — docx4j-python CR-012 Phase A (in progress)
+## Stage 11 — docx4j-python CR-012 Phase A (done)
 
 Two changes found by, or asked for by, docx4j-python's CR-012 Phase A (`mc:AlternateContent` kept at
 block, row and cell level, as docx4j's CR-051 phase 1 does). The first is a generator defect the
@@ -1127,3 +1127,77 @@ integer. They pinned the defect.
 fifty made and freed in turn never share an integer, and one keeps its own; two live ones differ;
 the path's shape; a substituted attr's choice is never reused; and a generation of two groups'
 choices in one class keeps two fields. The five reuse tests fail without the change.
+
+### 25. `parsers/`: `ParserConfig(wildcard_class=..., wildcard_class_for=...)`
+
+In `config.py` and `nodes/element.py`. A lax wildcard types a child by its name alone
+(`XmlContext.find_type`), and one name may be declared by several types, each in its own context,
+of which only one can be a global element. WordprocessingML's `w:sdt` is `CT_SdtBlock` in a body,
+`CT_SdtRun` in a paragraph, `CT_SdtRow` among a table's rows and `CT_SdtCell` among a row's cells,
+and only the first is global; markup compatibility puts any of them straight into an `mc:Choice`
+or `mc:Fallback`, whose content is a lax wildcard. So the name alone gave the block class at every
+level, and in a paragraph's branch the control's runs were skipped (lost on save). docx4j had the
+same defect, by JAXB's lax binding, and fixed it in its CR-051 (`McBranchSdt`, section 11.3).
+
+Two new options, off by default:
+
+- `wildcard_class: Callable[[str, tuple[type, ...]], type | None]`, called as
+  `wildcard_class(qname, ancestors)` for an element a lax wildcard (`process_contents` other than
+  `skip`) receives, when its qualified name is in `wildcard_class_for`, before the lookup by name.
+  `ancestors` is the classes of the enclosing typed elements, innermost first: the class whose
+  wildcard field receives the element, then its parent's, up to the root. It returns the class to
+  bind to, or None for the lookup by name. An `xsi:type` still comes first.
+- `wildcard_class_for: frozenset[str]`, the qualified names it is called for.
+
+`ElementNode` gains a `parent` slot (the enclosing element's node, None for the root), set by
+`child`'s fast path and `build_element_node`, and `ancestor_classes()`, which walks it.
+
+**Off is free**: one attribute store per element node built, and in the wildcard path one attribute
+test; the set lookup and the walk only when a hook is set and the name is asked for. docx4j-python
+asks for `w:sdt` alone, and binds it as the container the `mc:AlternateContent` stands in binds it:
+past the `mc` wrappers, the first class's own binding for the name (`docx4j_py.runtime.
+branch_child_class`).
+
+### 26. `serializers/`: `SerializerConfig(element_names=...)`
+
+In `config.py` and `mixins.py`. The other half of item 25: an object no field names --- one a
+wildcard holds, or the root --- is written under its class's own qualified name, which for a class
+generated from a named complex type is the type's (`CT_SdtRun`), where the document said `w:sdt`.
+JAXB writes such an object under its `@XmlRootElement` name. `element_names: Mapping[type, str] |
+None` gives a class the name to write it under there; a field's own name always wins, so nothing
+written through a field changes, and no `xsi:type` is written (a `DerivedElement` wrapper would
+have been read as a type substitution and written one, which docx4j-python's CR-012 section 3
+measured).
+
+**Off is free**: `convert_dataclass` consults the table only where no qualified name was passed in,
+which is the root and a wildcard's typed child, and only when one is set. docx4j-python names the
+four `w:sdt` classes; its CR-012 Phase B extends the table to the root elements it registers.
+
+### Verified against the real project (items 24 to 26)
+
+docx4j-python's schema refresh to docx4j `2853b7280` and regeneration: `generate.sh --check`
+byte identical, cached or not, and equal to the committed output apart from the refresh's fifteen
+admissions; its whole suite and `scripts/roundtrip.py` (50 of 50 parts canonically identical,
+nothing skipped) with the hooks on; its CR-012 section 3.1 fragment, a run-level control straight
+in a paragraph's `mc:Choice`, parsed by `wml(...)` with nothing skipped as `SdtRun` and written back
+whole; a control straight in a table's, a row's and a body's branch typed `CTSdtRow`, `CTSdtCell`
+and `SdtBlock` (`tests/openpackaging/test_mce_levels.py`).
+
+### Test status
+
+`PATH=$PWD/.venv/bin:$PATH .venv/bin/python -m pytest tests -o addopts=""` on CPython 3.14.6:
+
+| | result |
+|---|---|
+| the fork after stage 10 | 1620 passed, 1 skipped |
+| after item 24 | 1632 passed, 1 skipped |
+| after items 25 and 26 | **1651 passed, 1 skipped** |
+
+New: `tests/fork/test_compositor_identity.py` (12, item 24), `test_parser_wildcard_class.py` (10:
+off by default; without the hook the name alone chooses and a row's content is lost; with it each
+branch takes its container's class with nothing skipped; the ancestors innermost first; only the
+names asked for; a hook answering None; a `skip` wildcard and typed content never ask; both event
+handlers) and `test_serializer_element_names.py` (9: empty by default; the type name without the
+table, the element name with it and no `xsi:type`; a field's name wins; the root; the tree
+serializer agrees; a class not in the table; written and read back through item 25). Of the 19 for
+items 25 and 26, 17 fail without them; the other two pin the behaviour without the options.

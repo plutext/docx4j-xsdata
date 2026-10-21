@@ -1,5 +1,5 @@
 import warnings
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import InitVar, dataclass
 from typing import Any
 
@@ -32,6 +32,12 @@ class SerializerConfig:
             overwrite for typing
         bool_format: docx4j fork: the xsd:boolean spelling on output,
             `words` for `true`/`false`, `numeric` for `1`/`0`
+        element_names: docx4j fork: the qualified name (``{uri}local``) to
+            write an object of a class under, where no field names it: an
+            object held by a wildcard, or the root. Without an entry such an
+            object is written under its class's own qualified name, which for
+            a class generated from a named complex type is the type's name
+            (``CT_SdtRun``). A field's own name always wins.
     """
 
     encoding: str = "UTF-8"
@@ -43,6 +49,7 @@ class SerializerConfig:
     no_namespace_schema_location: str | None = None
     globalns: dict[str, Callable] | None = None
     bool_format: str = BOOL_WORDS
+    element_names: Mapping[type, str] | None = None
 
     # Deprecated
     pretty_print: InitVar[bool] = False

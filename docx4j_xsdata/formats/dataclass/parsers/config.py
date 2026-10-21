@@ -54,6 +54,19 @@ class ParserConfig:
             returns is ignored.
         namespaces_for: docx4j fork: the qualified names (``{uri}local``)
             `on_namespaces` is called for.
+        wildcard_class: docx4j fork: called as ``wildcard_class(qname,
+            ancestors)`` for an element a lax wildcard (``process_contents``
+            other than ``skip``) receives, when its qualified name is in
+            `wildcard_class_for`, before the ordinary lookup by name
+            (``XmlContext.find_type``). `ancestors` is the classes of the
+            enclosing typed elements, innermost first: the class whose
+            wildcard field receives the element, then its parent's, up to the
+            root. It returns the class to bind the element to, or None for the
+            ordinary lookup. One name may be declared by several types, each
+            in its own context, and only one of them can be global; this is
+            where a binding layer chooses by the context. It must not raise.
+        wildcard_class_for: docx4j fork: the qualified names
+            `wildcard_class` is called for.
         skipped_report: docx4j fork: collect the elements and attributes
             lenient parsing drops. True for a new report, or a
             `SkippedReport` instance to configure it or to share it.
@@ -75,6 +88,8 @@ class ParserConfig:
     on_bind: Callable[[Any], None] | None = None
     on_namespaces: Callable[[str, Any, dict], None] | None = None
     namespaces_for: frozenset[str] = frozenset()
+    wildcard_class: Callable[[str, tuple[type, ...]], type | None] | None = None
+    wildcard_class_for: frozenset[str] = frozenset()
     skipped_report: InitVar[bool | SkippedReport] = False
     skipped: SkippedReport | None = field(
         init=False, default=None, compare=False, repr=False

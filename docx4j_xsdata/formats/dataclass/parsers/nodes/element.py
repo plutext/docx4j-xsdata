@@ -31,6 +31,9 @@ class ElementNode(XmlNode):
         derived_factory: Derived element factory
         xsi_type: The xml type substitution
         xsi_nil: Specifies whether element has the xsi:nil attribute
+        parent: docx4j fork: the node of the enclosing element, None for the
+            root, so that `ParserConfig.wildcard_class` can be given the
+            enclosing classes
 
     Attributes:
         assigned: A set to store the processed sub-nodes
@@ -46,6 +49,7 @@ class ElementNode(XmlNode):
         "meta",
         "mixed",
         "ns_map",
+        "parent",
         "position",
         "tail_processed",
         "xsi_nil",
@@ -64,6 +68,7 @@ class ElementNode(XmlNode):
         derived_factory: type | None = None,
         xsi_type: str | None = None,
         xsi_nil: bool | None = None,
+        parent: ElementNode | None = None,
     ):
         """Initialize the xml node."""
         self.meta = meta
@@ -76,6 +81,7 @@ class ElementNode(XmlNode):
         self.derived_factory = derived_factory
         self.xsi_type = xsi_type
         self.xsi_nil = xsi_nil
+        self.parent = parent
         self.assigned: set[int] = set()
         self.tail_processed: bool = False
 
@@ -510,6 +516,7 @@ class ElementNode(XmlNode):
                     xsi_type=None,
                     xsi_nil=None,
                     mixed=self.meta.mixed_content,
+                    parent=self,
                 )
 
         for var in self.meta.get_children(qname):
@@ -654,7 +661,13 @@ class ElementNode(XmlNode):
             return node
 
         if var.process_contents != "skip":
-            clazz = self.context.find_type(qname)
+            # docx4j fork: the binding layer may choose by the context first.
+            # See `ParserConfig.wildcard_class`.
+            hook = self.config.wildcard_class
+            chosen = None
+            if hook is not None and qname in self.config.wildcard_class_for:
+                chosen = hook(qname, self.ancestor_classes())
+            clazz = chosen or self.context.find_type(qname)
 
         if clazz:
             node = self.build_element_node(
@@ -680,6 +693,19 @@ class ElementNode(XmlNode):
             factory=self.context.class_type.any_element,
             config=self.config,
         )
+
+    def ancestor_classes(self) -> tuple[type, ...]:
+        """docx4j fork: this node's class and its enclosing elements', innermost first.
+
+        Returns:
+            The classes, from this node's up to the root's.
+        """
+        classes = []
+        node: ElementNode | None = self
+        while node is not None:
+            classes.append(node.meta.clazz)
+            node = node.parent
+        return tuple(classes)
 
     def drop_simple_attrs(self, qname: str, attrs: dict) -> None:
         """docx4j fork: account for the attributes of a simple-typed element.
@@ -758,4 +784,5 @@ class ElementNode(XmlNode):
             xsi_type=xsi_type,
             xsi_nil=xsi_nil,
             mixed=self.meta.mixed_content,
+            parent=self,
         )
