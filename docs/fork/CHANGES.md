@@ -1030,3 +1030,55 @@ Eight new tests in `tests/fork/test_skipped_report.py`: the attribute collected 
 handlers, with its path; logged; raising when strict; dropped quietly with no report; `xsi:*`
 exempt; the value still bound; and the `xsi:type` case. The five that test the new behaviour fail
 without it.
+
+## Stage 10 — the namespaces in scope at an element (done)
+
+docx4j-python CR-011 Q3 and its upstream report 19. Markup compatibility names namespaces by
+**prefix**: `<mc:Choice Requires="wps">` is understood when the namespace the prefix `wps` is
+bound to in scope at that element is, and a producer may bind any prefix it likes (docx4j's text
+extraction probe binds the wps namespace to `shape2010`, and declares a private `zz9` on the
+`mc:AlternateContent`). A binding keeps the attribute's string, and the declarations it resolved
+through are gone once the parse is over. So a consumer could select a branch only by a prefix
+table, which REQ-303 of the portfolio's text extraction specification permits only where nothing
+better is possible, and a re-marshalled save could not declare a prefix that only such a value
+named.
+
+### 23. `parsers/`: `ParserConfig(on_namespaces=..., namespaces_for=...)`
+
+In `config.py`, `nodes/element.py` and `nodes/wildcard.py`. Two new options, off by default:
+
+- `on_namespaces: Callable[[str, Any, dict], None] | None`, called as
+  `on_namespaces(qname, obj, ns_map)` with each object the parser builds for an element whose
+  qualified name is in `namespaces_for`, and the prefix-URI map in scope at that element (the
+  default namespace under `None`): the element's own declarations and its ancestors';
+- `namespaces_for: frozenset[str]`, the qualified names (`{uri}local`) it is called for.
+
+`ElementNode.bind` calls it after `on_bind`, for a typed object. `WildcardNode` gains an optional
+`config` slot, which `ElementNode.build_node` and `WildcardNode.child` pass on, so that an
+element inside a wildcard tree (an `AnyElement`, which is how an `mc:Choice` nested in another's
+branch is kept) is seen too. `TreeParser`'s wildcard nodes are built without a config, and are
+not.
+
+**Off is free**: one attribute test per bound object, and a set lookup only when a hook is set.
+docx4j-python sets it for `mc:Choice` alone and records, on the Choice, the URI each prefix of its
+`Requires`, `mc:Ignorable` and `mc:MustUnderstand` was bound to (`docx4j_py.child.BoundPrefixes`,
+a `str` subclass, so that equality and serialisation see the string); its writer then declares a
+prefix only such a value names where Word 365 does (docx4j CR-052).
+
+### Verified against the real project
+
+docx4j-python's fast and full suites with the hook on; `scripts/roundtrip.py` and the corpus round
+trips unchanged; docx4j's probe's eleven Choices recorded with their bindings (`shape2010` to the
+wps namespace, `zz9` to `http://example.com/zz9`), its case 6 read from the Choice, and its saves
+declaring every prefix an `mc` attribute names (docx4j-python
+`tests/openpackaging/test_mc_declarations.py`, the port of docx4j's `McSourcePrefixesTest`).
+
+### Test status
+
+`PATH=.venv/bin:$PATH .venv/bin/python -m pytest tests -o addopts=""`, less the modules that
+need `requests`, on CPython 3.14: **1604 passed**, nine of them new in
+`tests/fork/test_parser_namespaces.py`: off by default; the tree unchanged with the hook on; no
+names, no calls; typed and wildcard elements both seen, in document order; the map is the
+element's and its ancestors' declarations; only the names asked for; after `on_bind`; a value
+replaced in place; and the pure Python event handler's maps the same as lxml's. All nine fail
+without the stage (the options do not exist).

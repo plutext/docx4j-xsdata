@@ -115,6 +115,12 @@ class ElementNode(XmlNode):
             if on_bind is not None:
                 on_bind(obj)
 
+            # docx4j fork: the namespaces in scope, for the elements asked for.
+            # See `ParserConfig.on_namespaces`.
+            on_namespaces = self.config.on_namespaces
+            if on_namespaces is not None and qname in self.config.namespaces_for:
+                on_namespaces(qname, obj, self.ns_map)
+
         if self.derived_factory:
             obj = self.derived_factory(qname=qname, value=obj, type=self.xsi_type)
 
@@ -672,6 +678,7 @@ class ElementNode(XmlNode):
             ns_map=ns_map,
             position=position,
             factory=self.context.class_type.any_element,
+            config=self.config,
         )
 
     def drop_simple_attrs(self, qname: str, attrs: dict) -> None:

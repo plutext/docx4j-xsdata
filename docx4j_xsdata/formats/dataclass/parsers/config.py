@@ -43,6 +43,17 @@ class ParserConfig:
             layer needs to wire something per object -- a parent pointer, a
             registry entry -- without walking the finished tree a second time.
             It must not raise, and what it returns is ignored.
+        on_namespaces: docx4j fork: called as ``on_namespaces(qname, obj,
+            ns_map)`` with each object the parser builds for an element whose
+            qualified name is in `namespaces_for`, typed or a wildcard
+            (``AnyElement``), and the namespace declarations in scope at that
+            element (prefix to URI, the default namespace under None). A
+            binding keeps an attribute's value, not the declarations a prefix
+            in it resolved through; this is where a binding layer can record
+            them. Called after `on_bind`. It must not raise, and what it
+            returns is ignored.
+        namespaces_for: docx4j fork: the qualified names (``{uri}local``)
+            `on_namespaces` is called for.
         skipped_report: docx4j fork: collect the elements and attributes
             lenient parsing drops. True for a new report, or a
             `SkippedReport` instance to configure it or to share it.
@@ -62,6 +73,8 @@ class ParserConfig:
     fail_on_unknown_attributes: bool = False
     fail_on_converter_warnings: bool = False
     on_bind: Callable[[Any], None] | None = None
+    on_namespaces: Callable[[str, Any, dict], None] | None = None
+    namespaces_for: frozenset[str] = frozenset()
     skipped_report: InitVar[bool | SkippedReport] = False
     skipped: SkippedReport | None = field(
         init=False, default=None, compare=False, repr=False

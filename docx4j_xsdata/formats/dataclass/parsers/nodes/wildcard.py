@@ -1,4 +1,5 @@
 from docx4j_xsdata.formats.dataclass.models.elements import XmlVar
+from docx4j_xsdata.formats.dataclass.parsers.config import ParserConfig
 from docx4j_xsdata.formats.dataclass.parsers.mixins import XmlNode
 from docx4j_xsdata.formats.dataclass.parsers.utils import ParserUtils
 
@@ -17,9 +18,11 @@ class WildcardNode(XmlNode):
         position: The current objects length, everything after
             this position are considered children of this node.
         factory: The generic element factory
+        config: docx4j fork: the parser config, for `ParserConfig.on_namespaces`;
+            None for a node built without one
     """
 
-    __slots__ = "attrs", "factory", "ns_map", "position", "var"
+    __slots__ = "attrs", "config", "factory", "ns_map", "position", "var"
 
     def __init__(
         self,
@@ -28,6 +31,7 @@ class WildcardNode(XmlNode):
         ns_map: dict,
         position: int,
         factory: type,
+        config: ParserConfig | None = None,
     ):
         """Initialize the xml node."""
         self.var = var
@@ -35,6 +39,7 @@ class WildcardNode(XmlNode):
         self.ns_map = ns_map
         self.position = position
         self.factory = factory
+        self.config = config
 
     def bind(
         self, qname: str, text: str | None, tail: str | None, objects: list
@@ -70,6 +75,15 @@ class WildcardNode(XmlNode):
                 attributes=attributes,
                 children=children,
             )
+            # docx4j fork: the namespaces in scope, for the elements asked for.
+            # See `ParserConfig.on_namespaces`.
+            config = self.config
+            if (
+                config is not None
+                and config.on_namespaces is not None
+                and qname in config.namespaces_for
+            ):
+                config.on_namespaces(qname, obj, self.ns_map)
             objects.append((self.var.qname, obj))
         else:
             objects.append((self.var.qname, text))
@@ -114,4 +128,5 @@ class WildcardNode(XmlNode):
             attrs=attrs,
             ns_map=ns_map,
             factory=self.factory,
+            config=self.config,
         )
