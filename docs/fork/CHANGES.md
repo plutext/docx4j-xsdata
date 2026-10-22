@@ -1300,3 +1300,84 @@ identical to its source now, for the first time. docx4j-python's whole suite and
 |---|---|
 | the fork after stage 11 | 1656 passed, 1 skipped |
 | after item 28 | **1668 passed, 1 skipped** |
+
+## Release 26.2.2 — stages 9 to 12
+
+2026-10-22: the second fork release on upstream `v26.2`. It carries stages 9 to 12 (items 22 to
+28), which docx4j-python's `main` uses and which `26.2.1` did not. Nothing in the library changes in
+this commit: it is the version, this section and the gate, as stage 8 was for `26.2.1`.
+
+### The version is `26.2.2`
+
+`__version__ = "26.2.2"` in `docx4j_xsdata/__init__.py`, for the tag `docx4j-v26.2.2`: upstream
+`26.2`, fork release 2, by item 19's scheme. The bump is the last commit before the tag. As in
+stage 8, no test asserts the number and nothing generated moves with it.
+
+### What it carries
+
+| stage | item | change | asked for by |
+|---|---|---|---|
+| 9 | 22 | `parsers/nodes/element.py`: an attribute on a simple-typed element is an unknown attribute, reported or raised, where it was dropped with no trace | docx4j-python CR-001 section 14.12 |
+| 10 | 23 | `ParserConfig(on_namespaces=..., namespaces_for=...)`: the namespaces in scope at an element | CR-011 Q3 |
+| 11 | 24 | `models/xsd.py`: a compositor's identity is never reused, so two unrelated choices never merge into one field | CR-012 section 9 |
+| 11 | 25 | `ParserConfig(wildcard_class=..., wildcard_class_for=...)`: a lax wildcard's child typed by its context | CR-012 Phase A |
+| 11 | 26 | `SerializerConfig(element_names=...)`: the name an object no field names is written under | CR-012 Phase A |
+| 11 | 27 | tests only: item 25's hook for a name no global element declares | CR-012 Phase A2 |
+| 12 | 28 | `ParserConfig(lexical_types=...)`: float and bytes values that keep the spelling they were read with | CR-012 Phase C |
+
+**For a user of `26.2.1`.** Every new option is off by default. Two items change what the defaults
+do, and both are fixes:
+
+- item 22: with `fail_on_unknown_attributes=True`, an attribute on a simple-typed element now
+  raises `ParserError`, and with the skipped report on it is now reported. Without either, it is
+  dropped quietly, as before;
+- item 24: a generation that met a reused compositor identity now keeps the choices apart. One
+  that met none is byte identical.
+
+### What ships
+
+Built by hand with `python -m build` (build 1.6.1, twine 7.0.0, CPython 3.14.6); the workflow
+builds the same way.
+
+| | | |
+|---|---|---|
+| `docx4j_xsdata-26.2.2-py3-none-any.whl` | 258 KiB, 153 files | `docx4j_xsdata` only, 125 modules among them, as in `26.2.1`; no `.ruff_cache` |
+| `docx4j_xsdata-26.2.2.tar.gz` | 462 KiB, 552 entries | `MANIFEST.in`'s, with `tests/` now 322 files (`tests/fork/`'s 26 among them); not `tools/`, not `.github/` |
+
+`twine check --strict` passes on both.
+
+### Verified against the real project
+
+Item 19's consumer test. A clean CPython 3.12.13 virtual environment,
+`uv pip install dist/docx4j_xsdata-26.2.2-py3-none-any.whl[lxml,cli]` with `pytest` and
+`markdown-it-py`, then docx4j-python (`d27fdc9`, the end of its CR-012 Phase C) installed editable
+with `--no-deps`. Its range `docx4j-xsdata[lxml]>=26.2.1,<26.3` already admits `26.2.2`.
+
+| | result |
+|---|---|
+| `import docx4j_py` against the wheel's `docx4j_xsdata` | imports; `docx4j_xsdata.__version__` is `26.2.2` |
+| `python -m pytest -m "not slow"` | **3884 passed, 8 skipped**, 1280 deselected, 1 failed (below), 102 s |
+| `codegen/generate.sh --check`, `DOCX4J_PY_VENV` the clean environment | reproducible, two generations byte identical, and identical to the committed tree |
+
+The one failure is not the fork's.
+`tests/content/test_office_js_subset.py::test_the_script_would_write_what_is_committed` compares
+docx4j-python's committed `tests/office_js_subset.json` with what its script derives from the
+sibling `docx4j-core-ts` checkout, which had moved on that day. It fails the same way under
+docx4j-python's own `.venv-fork`, and skips where there is no sibling checkout, as in its CI.
+
+### Test status
+
+`PATH=$PWD/.venv/bin:$PATH .venv/bin/python -m pytest tests -o addopts=""` on CPython 3.14.6:
+
+| | result |
+|---|---|
+| the fork after stage 12 | 1668 passed, 1 skipped |
+| after the version bump | **1668 passed, 1 skipped** |
+
+No test changed.
+
+### Releasing
+
+[REBASING.md, "Releasing"](REBASING.md#releasing), steps 2 to 5, with `26.2.2` for `26.2.1`. The
+push is an ordinary one, since the base is unchanged since `26.2.1`. The tag is
+`docx4j-v26.2.2`, its message `docx4j_xsdata on upstream v26.2, fork release 2`.
