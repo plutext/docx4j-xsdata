@@ -1551,3 +1551,80 @@ agrees within its noise: parse totals of 240 and 237 ms (26.2.2), 242 and 251 (o
 | after item 29 | 1697 passed, 1 skipped |
 | after item 30 | 1707 passed, 1 skipped |
 | after item 31 | **1713 passed, 1 skipped** |
+
+## Release 26.2.3 — stage 13
+
+2026-10-24: the third fork release on upstream `v26.2`. It carries stage 13 (items 29 to 31), which
+docx4j-python's CR-018 Phase A needs. Nothing in the library changes in this commit: it is the
+version, this section and the gate, as for `26.2.2`.
+
+### The version is `26.2.3`
+
+`__version__ = "26.2.3"` in `docx4j_xsdata/__init__.py`, for the tag `docx4j-v26.2.3`: upstream
+`26.2`, fork release 3, by item 19's scheme. The bump is the last commit before the tag. No test
+asserts the number.
+
+### What it carries
+
+| stage | item | change | asked for by |
+|---|---|---|---|
+| 13 | 29 | `ParserConfig(exact_types=...)`: booleans and enumerations of strings read exactly as written; any other spelling keeps its text and is written back as read | docx4j-python CR-018 |
+| 13 | 30 | `SkippedReport.kept`: the values bound as their text, by reason (`exact`, `invalid`), apart from the skipped items | CR-018 |
+| 13 | 31 | `XmlVar.schema_default_value`: the schema default typed, beside the lexical `schema_default` | CR-018 |
+
+**For a user of `26.2.2`.** Every new option is off by default, and with them off nothing changes:
+docx4j-python's suite and round trip are identical under both releases. Two things are new
+whatever the options:
+
+- a converter's `deserialize` may now be passed an `exact_types` keyword. Only when the option is
+  on, and only through `ParserUtils.parse_value`, so a converter registered with a narrower
+  signature sees upstream's call otherwise;
+- the skipped report, when on, also fills `kept`. Its length, iteration and indexing are as before.
+
+### What ships
+
+Built by hand with `python -m build` (build 1.6.1, twine 7.0.0, CPython 3.14.6); the workflow
+builds the same way.
+
+| | | |
+|---|---|---|
+| `docx4j_xsdata-26.2.3-py3-none-any.whl` | 262 KiB, 153 files | `docx4j_xsdata` only, 125 modules among them, as in `26.2.2`; no `.ruff_cache` |
+| `docx4j_xsdata-26.2.3.tar.gz` | 474 KiB, 555 entries | `MANIFEST.in`'s, with `tests/` now 325 files (`tests/fork/`'s 29 among them); not `tools/`, not `.github/` |
+
+`twine check --strict` passes on both.
+
+### Verified against the real project
+
+Item 19's consumer test. A clean CPython 3.12.13 virtual environment,
+`uv pip install dist/docx4j_xsdata-26.2.3-py3-none-any.whl[lxml,cli]` with `pytest` and
+`markdown-it-py`, and docx4j-python at `531efcf` installed editable with `--no-deps`. Its range
+`>=26.2.1,<26.3` admits `26.2.3`. It ran from a scratch copy of the tree, as stage 13's verification
+did, because an agent was working in the checkout.
+
+| | result |
+|---|---|
+| `import docx4j_py` against the wheel's `docx4j_xsdata` | imports; `docx4j_xsdata.__version__` is `26.2.3` |
+| `python -m pytest -m "not slow"` | **4618 passed, 8 skipped, 3 xfailed**, 1307 deselected, 2 failed (below), 149 s |
+| the same, every `ParserConfig` with `exact_types={bool, Enum}` | the same counts, 145 s |
+| `codegen/generate.sh --check`, `DOCX4J_PY_VENV` the clean environment | reproducible, two generations byte identical, and identical to the committed `docx4j_py/` and `codegen/` |
+
+The 2 failures are `tests/test_codegen_el.py`'s two tests that read the tree from git, which a
+copy is not, as in stage 13's verification.
+
+### Test status
+
+`PATH=$PWD/.venv/bin:$PATH .venv/bin/python -m pytest tests -o addopts=""` on CPython 3.14.6:
+
+| | result |
+|---|---|
+| the fork after stage 13 | 1713 passed, 1 skipped |
+| after the version bump | **1713 passed, 1 skipped** |
+
+No test changed.
+
+### Releasing
+
+[REBASING.md, "Releasing"](REBASING.md#releasing), steps 2 to 5, with `26.2.3` for `26.2.1`. The
+push is an ordinary one, since the base is unchanged. The tag is `docx4j-v26.2.3`, its message
+`docx4j_xsdata on upstream v26.2, fork release 3`. Then docx4j-python raises its floor to
+`docx4j-xsdata[lxml]>=26.2.3,<26.3`.
