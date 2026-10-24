@@ -1473,6 +1473,36 @@ text and simple content, with the element's name and path; kept values apart fro
 cleared at the start of every parse; nothing recorded without a report or when strict; exact values
 record nothing. All 10 fail without the item (`KeptValue` does not exist).
 
+### 31. `models/`: `XmlVar.schema_default_value`, the schema default typed
+
+In `models/elements.py` and `models/builders.py`. `<SchemaDefaults>metadata</SchemaDefaults>`
+(stage 2, item 2) keeps a schema default in the field's metadata as the schema's lexical string,
+`XmlVar.schema_default`, and a reader that wants the effective value had to convert it.
+docx4j-python's CR-018 `effective(obj, name)` is such a reader: the stated value, else the
+audited schema default. A new slot carries the default typed:
+
+- `XmlVar.schema_default_value`, converted once when `XmlMetaBuilder.build_var` builds the var,
+  with the converter, the field's types (already sorted) and format, as a parse of that spelling
+  converts it. `"true"` is True, `"12"` is 12, `"NaN"` is a float NaN, `""` stays `""`, and a
+  list's default is split on whitespace into its factory.
+- An enumeration's default is the generated member already, and is kept as it is. No default gives
+  None.
+- A lexical default that does not convert stays the string. Only hand-written metadata can cause
+  that, since the generator checks its defaults against their types
+  (`SanitizeAttributesDefaultValue`), and raising there would break `context.build` for the class.
+- The conversion has no namespace map, so a QName default is converted without the document's
+  prefixes. A converter registered after the meta is built does not retype it.
+
+`schema_default` is unchanged, so its documented contract and `tests/fork/test_schema_defaults.py`
+stand. The policy, which namespaces' defaults are audited, stays docx4j-python's. **The cost** is
+one conversion per field with a schema default, once per class: docx4j-python's model has 546.
+
+**Tests:** `tests/fork/test_schema_default_value.py`, six: typed beside the lexical default
+(boolean, integer, NaN, empty string, enumeration member, none); a subclass carries its inherited
+defaults; none without the metadata mode; the field still never filled on parse; the same value a
+parse of the spelling gives; a list's default, and one that does not convert kept lexical. Five
+fail without the item (the slot does not exist); the fourth pins stage 2's behaviour.
+
 ### Test status
 
 `PATH=$PWD/.venv/bin:$PATH .venv/bin/python -m pytest tests -o addopts=""` on CPython 3.14.6:
@@ -1481,4 +1511,5 @@ record nothing. All 10 fail without the item (`KeptValue` does not exist).
 |---|---|
 | the fork at 26.2.2 | 1668 passed, 1 skipped |
 | after item 29 | 1697 passed, 1 skipped |
-| after item 30 | **1707 passed, 1 skipped** |
+| after item 30 | 1707 passed, 1 skipped |
+| after item 31 | **1713 passed, 1 skipped** |

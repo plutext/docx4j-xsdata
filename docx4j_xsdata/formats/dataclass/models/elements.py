@@ -90,6 +90,15 @@ class XmlVar(MetaMixin):
             in the metadata rather than apply it as the field default. None
             when the schema declares none. The field itself is never filled
             with it, neither on construction nor on parse.
+        schema_default_value: docx4j fork, stage 13: `schema_default` as a
+            value of the field's types, converted once when the var is
+            built, as a parse of that spelling would convert it: `"true"`
+            is True, `"NaN"` a float NaN, a list's default a list. An
+            enumeration's default is already its member, and is kept. None
+            when there is no schema default; the lexical string when it
+            does not convert, which only hand-written metadata can cause,
+            the generator having checked its defaults against their types.
+            It is converted without the document's namespaces.
         xml_type: Type of the XML field (element, attribute, etc.)
         namespaces: List of supported namespaces
         elements: Mapping of qualified name-repeatable elements
@@ -140,6 +149,7 @@ class XmlVar(MetaMixin):
         "qname",
         "required",
         "schema_default",
+        "schema_default_value",
         "sequence",
         "tokens",
         "tokens_factory",
@@ -173,10 +183,12 @@ class XmlVar(MetaMixin):
         elements: Mapping[str, XmlVar],
         wildcards: Sequence[XmlVar],
         schema_default: Any = None,
+        schema_default_value: Any = None,
         **kwargs: Any,
     ):
         """Initialize the xml var."""
         self.schema_default = schema_default
+        self.schema_default_value = schema_default_value
         self.index = index
         self.name = name
         self.local_name = local_name

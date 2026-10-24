@@ -8,7 +8,7 @@ from typing import (
     get_type_hints,
 )
 
-from docx4j_xsdata.exceptions import XmlContextError
+from docx4j_xsdata.exceptions import ConverterError, XmlContextError
 from docx4j_xsdata.formats.converter import converter
 from docx4j_xsdata.formats.dataclass.compat import ClassType
 from docx4j_xsdata.formats.dataclass.models.elements import XmlMeta, XmlType, XmlVar
@@ -459,7 +459,49 @@ class XmlVarBuilder:
             namespaces=namespaces,
             xml_type=xml_type,
             schema_default=schema_default,
+            schema_default_value=self.build_schema_default_value(
+                schema_default, types, format_str, tokens_factory
+            ),
         )
+
+    @classmethod
+    def build_schema_default_value(
+        cls,
+        schema_default: Any,
+        types: Sequence[type],
+        format_str: str | None,
+        tokens_factory: Callable | None,
+    ) -> Any:
+        """docx4j fork: the schema default as a value of the field's types.
+
+        See `XmlVar.schema_default_value`. The conversion is the parser's:
+        the same converter, types (already sorted) and format, a list's
+        default split on whitespace.
+
+        Args:
+            schema_default: The lexical default, the generated enumeration
+                member, or None
+            types: The field's types
+            format_str: The field's format
+            tokens_factory: The field's tokens factory, for a list
+
+        Returns:
+            The typed default, the schema default as it is when it is not
+            a string, or the lexical string when it does not convert.
+        """
+        if not isinstance(schema_default, str):
+            return schema_default
+
+        try:
+            if tokens_factory:
+                return tokens_factory(
+                    converter.deserialize(val, types, format=format_str)
+                    for val in schema_default.split()
+                )
+
+            return converter.deserialize(schema_default, types, format=format_str)
+        except ConverterError:
+            return schema_default
 
     def build_choices(
         self,
