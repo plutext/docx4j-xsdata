@@ -21,13 +21,13 @@ tag, with each generic fix offered upstream later.
 - The root `CHANGES.md` is upstream's changelog and is never edited. Everything in `README.md`
   below its first rule is upstream's.
 
-**Status, 2026-10-22:**
+**Status, 2026-10-24:**
 - The base is upstream `v26.2`.
 - **26.2.2** (tag `docx4j-v26.2.2`, stages 1 to 12, items 1 to 28) is on PyPI, published
   2026-10-22. Before it, **26.2.1** (tag `docx4j-v26.2.1`, stages 1 to 8).
-- `docx4j` is pushed up to the 26.2.2 commit. docx4j-python's `main` uses stages 9 to 12, so its
-  next step is raising its lower bound to `docx4j-xsdata[lxml]>=26.2.2,<26.3`.
-- The next fork release is **26.2.3**, or **26.3.1** after a rebase.
+- **Stage 13** (items 29 to 31, docx4j-python CR-018) is committed on `docx4j`, local and
+  unpushed. It is in no release: **26.2.3** is to carry it, and docx4j-python's CR-018 Phase A
+  needs that release (`>=26.2.3,<26.3`).
 
 ## Branches, remotes and the rename
 
@@ -65,7 +65,7 @@ tools/rebase-upstream.sh v26.3 [--no-rebase] [--branch NAME]                    
 - **`PATH` must hold `.venv/bin`.** The generator's tests shell out to `docx4j-xsdata` and `ruff`
   by bare name. Without it, 47 of them fail with `FileNotFoundError` and look like real failures.
 - **`-o addopts=""`** drops upstream's `--color=yes --benchmark-skip`.
-- **The last count:** after stage 12, the suite is 1,668 passed and 1 skipped. Each stage's
+- **The last count:** after stage 13, the suite is 1,713 passed and 1 skipped. Each stage's
   "Test status" table in `CHANGES.md` has the current count; a change that moves it records the
   new one.
 - **CI** (`.github/workflows/tests.yml`) runs on `docx4j` pushes and pull requests: CPython 3.10
@@ -85,8 +85,8 @@ the commit and in `CHANGES.md`. The fork's job is to stay small.
 2. **Mark fork code.** Put `docx4j fork:` in a comment or docstring at each changed place, so a
    rebase conflict says whose line it is. There are about a hundred such markers.
 3. **One item per commit.**
-   - Items are numbered across the fork; the last is 28, so the next is **29**.
-   - Items are grouped into stages; the last is 12, so the next is **13**. A stage is usually
+   - Items are numbered across the fork; the last is 31, so the next is **32**.
+   - Items are grouped into stages; the last is 13, so the next is **14**. A stage is usually
      what one docx4j-python CR or phase asked for.
    - Subject style: `Area: what it does (stage N, item M)`, for example `Parser and serialiser:
      float and bytes values that keep the spelling they were read with (stage 12, item 28)`.

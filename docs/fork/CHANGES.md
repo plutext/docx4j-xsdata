@@ -1382,7 +1382,7 @@ No test changed.
 push is an ordinary one, since the base is unchanged since `26.2.1`. The tag is
 `docx4j-v26.2.2`, its message `docx4j_xsdata on upstream v26.2, fork release 2`.
 
-## Stage 13 — docx4j-python CR-018: values read exactly as written
+## Stage 13 — docx4j-python CR-018: values read exactly as written (done)
 
 Asked for by docx4j-python's CR-018, which reads run properties as Word 365 does. Word's rule for an
 ST_OnOff `w:val` (`b`, `i`, `caps`, `vanish` and the rest), measured 2026-10-24: **off for exactly
@@ -1502,6 +1502,44 @@ one conversion per field with a schema default, once per class: docx4j-python's 
 defaults; none without the metadata mode; the field still never filled on parse; the same value a
 parse of the spelling gives; a list's default, and one that does not convert kept lexical. Five
 fail without the item (the slot does not exist); the fourth pins stage 2's behaviour.
+
+### Verified against the real project
+
+docx4j-python at `531efcf` (CR-018 decided, its Phase A not yet started), on CPython 3.14.6 with lxml
+6.1.3. The suite and the scripts ran in a scratch copy of its tree, because an agent was working in
+the checkout and nothing there was to change. The sibling checkouts its tests read were linked in
+beside the copy.
+
+"On" means every `ParserConfig` defaults to `exact_types={bool, Enum}`: a scratch pytest plugin, and
+a wrapper for the scripts, patch `ParserConfig.__init__`. That is a superset of docx4j-python's
+wiring through `runtime.parser_config()`.
+
+| | 26.2.2 | stage 13, off | stage 13, on |
+|---|---|---|---|
+| the whole suite | 5925 passed, 8 skipped, 3 xfailed | the same | the same |
+| `scripts/roundtrip.py` | 50/50 parts canonically identical, 0 differences, 0 skipped, 34 boolean-spelling respellings | the same | the same |
+
+The 2 failures in every column are `tests/test_codegen_el.py`'s two tests that read the tree from
+git, which a copy is not.
+
+Word's 15 measured ST_OnOff spellings, through docx4j-python's parser and serialiser with the option
+on: none changes meaning on save, where `" false"` and `"false "` did before. Every spelling other
+than the canonical four is saved exactly as read.
+
+**The cost.** `Symbols.docx`'s main part (771 KB), parsed and marshalled, the median of 15
+interleaved runs per mode, over three rounds alternating the processes. 26.2.2 is the published
+wheel, in a virtual environment of the same Python and lxml.
+
+| | parse median, ms, by round | parse minimum, ms | marshal median, ms |
+|---|---|---|---|
+| 26.2.2 | 196.4, 197.4, 196.9 | 191.9 | 251.2 to 254.0 |
+| stage 13, off | 199.1, 197.5, 193.9 | 192.6 | 250.6 to 254.1 |
+| stage 13, on | 199.0, 198.5, 195.0 | 192.3 | 250.0 to 254.4 |
+
+Off is free, and on costs nothing measurable: the spread between rounds, about 3 ms, is larger than
+any difference between the modes. `scripts/bench_marshal.py` over its 14 parts, two rounds each,
+agrees within its noise: parse totals of 240 and 237 ms (26.2.2), 242 and 251 (off), and 248 and 240
+(on).
 
 ### Test status
 
