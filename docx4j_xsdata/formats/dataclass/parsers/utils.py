@@ -9,6 +9,7 @@ from docx4j_xsdata.exceptions import ConverterError, ConverterWarning, ParserErr
 from docx4j_xsdata.formats.converter import QNameConverter, converter
 from docx4j_xsdata.formats.dataclass.models.elements import XmlMeta, XmlVar
 from docx4j_xsdata.formats.dataclass.parsers.config import ParserConfig
+from docx4j_xsdata.formats.dataclass.parsers.skipped import KEPT_EXACT, KEPT_INVALID
 from docx4j_xsdata.models.datatype import LEXICAL_CLASSES
 from docx4j_xsdata.models.enums import QNames
 from docx4j_xsdata.utils import collections, constants, text
@@ -206,6 +207,11 @@ class ParserUtils:
             if config.fail_on_converter_warnings:
                 raise ParserError(message)
 
+            # docx4j fork: the value is bound as its text; the skipped report
+            # records it with its kept values (stage 13, item 30).
+            if config.skipped is not None:
+                config.skipped.add_kept(KEPT_INVALID, meta, var, source)
+
             warnings.warn(message, ConverterWarning)
         else:
             if config.lexical_types:
@@ -291,7 +297,8 @@ class ParserUtils:
         """docx4j fork: keep a value that is not exactly a lexical form, as its text.
 
         See `ParserConfig.exact_types`. XSD's whitespace rule would have
-        converted the value, so it's kept on purpose and without a warning,
+        converted the value, so it's kept on purpose, without a warning and
+        recorded with the skipped report's kept values (`KEPT_EXACT`),
         unless the config fails on converter warnings: under that, every
         value must convert, and `UnionNode` relies on a candidate type
         failing.
@@ -314,6 +321,10 @@ class ParserUtils:
                 f"`{meta.clazz.__qualname__}.{var.name}`\n"
                 f"  `{source}` is not exactly a lexical form of its type"
             )
+
+        # docx4j fork: recorded with the skipped report's kept values (item 30)
+        if config.skipped is not None:
+            config.skipped.add_kept(KEPT_EXACT, meta, var, source)
 
         return source
 

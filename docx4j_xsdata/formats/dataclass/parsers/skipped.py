@@ -14,6 +14,10 @@ from docx4j_xsdata.logger import logger
 ELEMENT = "element"
 ATTRIBUTE = "attribute"
 
+#: The reasons a value is kept as its text, `KeptValue.reason`.
+KEPT_EXACT = "exact"
+KEPT_INVALID = "invalid"
+
 
 @dataclass(frozen=True)
 class SkippedNode:
@@ -37,6 +41,37 @@ class SkippedNode:
     line: int | None = None
 
 
+@dataclass(frozen=True)
+class KeptValue:
+    """A value the parser bound as the text it was read with.
+
+    docx4j fork, stage 13. It is not skipped content: the text is in the tree, in the
+    field `field_name` of an instance of `parent_class`, and the serializer
+    writes it back as read.
+
+    Args:
+        reason: `exact` (`KEPT_EXACT`) for a value `ParserConfig.exact_types`
+            kept on purpose, which XSD's whitespace rule would have
+            converted; `invalid` (`KEPT_INVALID`) for a value no rule
+            converts, which also raised the usual conversion warning
+        qname: The qualified name of the attribute, or of the element
+            whose text the value is
+        text: The value as read, which is what the field holds
+        field_name: The name of the field it is bound to
+        parent_class: The name of the class whose field it fills
+        path: The `/` joined qualified names of the ancestor elements,
+            with the value's element last and an attribute after it,
+            prefixed with `@`
+    """
+
+    reason: str
+    qname: str
+    text: Any
+    field_name: str
+    parent_class: str
+    path: str = ""
+
+
 @dataclass
 class SkippedReport:
     """The elements and attributes a lenient parse dropped.
@@ -54,10 +89,15 @@ class SkippedReport:
             recorded when it starts, an attribute when the element
             that carries it ends, or starts if that element is of
             simple type.
+        kept: docx4j fork, stage 13: the values bound as the text they
+            were read with (`KeptValue`), in document order. They are
+            not skipped content, so they are apart from `items` and
+            neither the report's length nor its iteration counts them.
     """
 
     log: bool = True
     items: list[SkippedNode] = field(default_factory=list, compare=False)
+    kept: list[KeptValue] = field(default_factory=list, compare=False)
     path: list[str] = field(default_factory=list, compare=False, repr=False, init=False)
 
     def __iter__(self) -> Any:
@@ -75,7 +115,41 @@ class SkippedReport:
     def clear(self) -> None:
         """Forget everything, at the start of a parse."""
         self.items.clear()
+        self.kept.clear()
         self.path.clear()
+
+    def add_kept(self, reason: str, meta: Any, var: Any, text: Any) -> None:
+        """Record a value bound as the text it was read with.
+
+        docx4j fork, stage 13. An attribute is bound when its element
+        ends, and an element's text when it ends, so the path's last step
+        is the value's element in both cases.
+
+        Args:
+            reason: `KEPT_EXACT` or `KEPT_INVALID`
+            meta: The class metadata of the class whose field the value
+                fills
+            var: The field's metadata
+            text: The value as read
+        """
+        location = self.location()
+        if var.is_attribute:
+            qname = var.qname
+            path = f"{location}/@{qname}"
+        else:
+            qname = self.path[-1] if self.path else var.qname
+            path = location
+
+        self.kept.append(
+            KeptValue(
+                reason=reason,
+                qname=qname,
+                text=text,
+                field_name=var.name,
+                parent_class=meta.clazz.__name__,
+                path=path,
+            )
+        )
 
     def start_element(self, qname: str, skipped: bool, parent: Any) -> None:
         """Enter an element, record it if the parser is skipping it.

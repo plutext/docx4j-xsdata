@@ -1442,6 +1442,37 @@ other types untouched; one var parsed under both modes in one process; the tree 
 the text; an unsupported type refused. 28 fail without the item (the option does not exist); the
 first pins the behaviour without it.
 
+### 30. `parsers/skipped.py`: `SkippedReport.kept`, the values bound as their text
+
+In `parsers/skipped.py`, `parsers/utils.py` and `parsers/config.py`. When the skipped report is on
+(stage 3, item 5), it also lists the values the parser bound as the text they were read with, as
+`KeptValue(reason, qname, text, field_name, parent_class, path)`:
+
+- `reason` is `KEPT_EXACT` (`"exact"`) for a value item 29 kept on purpose, or `KEPT_INVALID`
+  (`"invalid"`) for a value no rule converts, with or without `exact_types`. The second also raised
+  the usual ConverterWarning, as before; the first raises none.
+- `qname` is the attribute's, or for element text the element's. `path` is the report's path, with
+  an attribute last as `@name`. `field_name` and `parent_class` name the field that holds the text.
+- They are not skipped content (the text is in the tree and is written back), so they are a list
+  of their own, `report.kept`, in document order. The report's length, iteration and indexing count
+  only `items`, as before, so a caller's "nothing skipped" check is unchanged.
+- `clear()`, at the start of every parse, clears them too. Nothing is recorded without a report,
+  or when `fail_on_converter_warnings` raises instead of binding.
+
+docx4j-python's CR-018 surfaces them per part and package (`part.kept`, `package.kept`): CR-002 section 12.3
+item 7's "value" items, structured instead of caught as warnings. Catching warnings needs
+`warnings.catch_warnings`, which is process-wide, where the report is per config and so per thread.
+
+**Off is free**: both records sit on paths taken only by a value bound as its text, behind a
+`config.skipped is not None` test.
+
+**Tests:** `tests/fork/test_kept_values.py`, 10 with their parameters: a value kept on purpose
+recorded as exact, with its path, under both event handlers, and nothing counted as skipped; a value
+no rule converts recorded as invalid, with the option and without, and still warned about; element
+text and simple content, with the element's name and path; kept values apart from skipped content;
+cleared at the start of every parse; nothing recorded without a report or when strict; exact values
+record nothing. All 10 fail without the item (`KeptValue` does not exist).
+
 ### Test status
 
 `PATH=$PWD/.venv/bin:$PATH .venv/bin/python -m pytest tests -o addopts=""` on CPython 3.14.6:
@@ -1449,4 +1480,5 @@ first pins the behaviour without it.
 | | result |
 |---|---|
 | the fork at 26.2.2 | 1668 passed, 1 skipped |
-| after item 29 | **1697 passed, 1 skipped** |
+| after item 29 | 1697 passed, 1 skipped |
+| after item 30 | **1707 passed, 1 skipped** |

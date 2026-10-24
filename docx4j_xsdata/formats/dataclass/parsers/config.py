@@ -74,7 +74,9 @@ class ParserConfig:
             `wildcard_class` is called for.
         skipped_report: docx4j fork: collect the elements and attributes
             lenient parsing drops. True for a new report, or a
-            `SkippedReport` instance to configure it or to share it.
+            `SkippedReport` instance to configure it or to share it. The
+            report also lists, apart, the values bound as the text they
+            were read with (`SkippedReport.kept`, stage 13).
         lexical_types: docx4j fork: the value types, of `float` and `bytes`,
             whose values keep the spelling they were read with. Where the
             converter would write a value of one of them in another spelling
@@ -94,8 +96,10 @@ class ParserConfig:
             that is not exactly one of its lexical forms is bound as the text
             it was read with, and written back as read: silently when XSD's
             whitespace rule would have converted it, which is a value kept on
-            purpose, and with the usual conversion warning otherwise. Under
-            `fail_on_converter_warnings` both raise. Off (empty) by default.
+            purpose, and with the usual conversion warning otherwise; the
+            skipped report, if there is one, records both
+            (`SkippedReport.kept`). Under `fail_on_converter_warnings` both
+            raise. Off (empty) by default.
 
     Attributes:
         skipped: docx4j fork: the skipped content report, or None when
