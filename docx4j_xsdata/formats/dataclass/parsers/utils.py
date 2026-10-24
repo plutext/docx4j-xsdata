@@ -2,6 +2,7 @@ import math
 import warnings
 from collections import UserList
 from collections.abc import Callable, Iterable, Sequence
+from enum import Enum, EnumMeta
 from typing import Any
 
 from docx4j_xsdata.exceptions import ConverterError, ConverterWarning, ParserError
@@ -18,6 +19,18 @@ class _MissingType: ...
 
 
 MISSING = _MissingType()
+
+# docx4j fork: what a var's converter plan says about its single type, in its
+# fourth entry: nothing, a type whose values may keep their spelling
+# (`ParserConfig.lexical_types`, stage 12), or one whose values may be read
+# exactly (`ParserConfig.exact_types`, stage 13).
+PLAN_PLAIN = 0
+PLAN_LEXICAL = 1
+PLAN_BOOL = 2
+PLAN_ENUM = 3
+
+#: docx4j fork: xs:boolean's lexical forms, exactly as written.
+EXACT_BOOLEANS = frozenset(("true", "false", "1", "0"))
 
 
 class PendingCollection(UserList):
@@ -139,12 +152,20 @@ class ParserUtils:
                     pass  # upstream's path below builds the message and warns
                 else:
                     # docx4j fork: plan[3] says the type may keep a spelling
-                    # (`ParserConfig.lexical_types`), so the usual value pays
-                    # one tuple index for the option.
-                    if plan[3] and plan[2] in config.lexical_types:
-                        return cls.keep_lexical(
-                            result, value, var.format, config.lexical_types
-                        )
+                    # (`ParserConfig.lexical_types`, stage 12) or be read
+                    # exactly (`ParserConfig.exact_types`, stage 13), so the
+                    # usual value pays one tuple index for both options.
+                    kind = plan[3]
+                    if kind:
+                        if kind == PLAN_LEXICAL:
+                            if plan[2] in config.lexical_types:
+                                return cls.keep_lexical(
+                                    result, value, var.format, config.lexical_types
+                                )
+                        elif config.exact_types and cls.is_inexact(
+                            kind, result, value, config.exact_types
+                        ):
+                            return cls.keep_inexact(meta, var, config, value)
                     return result
 
         source = value
@@ -156,8 +177,28 @@ class ParserUtils:
                 ns_map=ns_map,
                 tokens_factory=tokens_factory or var.tokens_factory,
                 format=format or var.format,
+                exact_types=config.exact_types,
             )
         except ConverterError as ex:
+            # docx4j fork: a value the exact mode refused, but XSD's
+            # whitespace rule converts, is kept on purpose
+            # (`ParserConfig.exact_types`); only a failure that remains is
+            # warned about.
+            if config.exact_types:
+                try:
+                    cls.parse_value(
+                        value=source,
+                        types=types or var.types,
+                        default=default or var.default,
+                        ns_map=ns_map,
+                        tokens_factory=tokens_factory or var.tokens_factory,
+                        format=format or var.format,
+                    )
+                except ConverterError:
+                    pass
+                else:
+                    return cls.keep_inexact(meta, var, config, source)
+
             message = (
                 "Failed to convert value for "
                 f"`{meta.clazz.__qualname__}.{var.name}`\n  {ex}"
@@ -213,7 +254,71 @@ class ParserUtils:
         return LEXICAL_CLASSES[tp](value, source)
 
     @classmethod
-    def build_converter_plan(cls, var: XmlVar) -> tuple[int, Any, Any, bool]:
+    def is_inexact(
+        cls, kind: int, result: Any, source: Any, exact_types: frozenset[type]
+    ) -> bool:
+        """docx4j fork: whether a converted value was not read from exactly a lexical form.
+
+        See `ParserConfig.exact_types`. The converter collapses whitespace
+        before it matches, so a value it converted on the fast path may have
+        been read from a spelling the exact mode refuses.
+
+        Args:
+            kind: The var's converter plan kind, `PLAN_BOOL` or `PLAN_ENUM`
+            result: The converted value
+            source: The text it was converted from
+            exact_types: The types asked for
+
+        Returns:
+            Whether the value must be kept as its source text.
+        """
+        if not isinstance(source, str):
+            return False
+
+        if kind == PLAN_BOOL:
+            return bool in exact_types and source not in EXACT_BOOLEANS
+
+        return (
+            Enum in exact_types
+            and isinstance(result.value, str)
+            and result.value != source
+        )
+
+    @classmethod
+    def keep_inexact(
+        cls, meta: XmlMeta, var: XmlVar, config: ParserConfig, source: str
+    ) -> str:
+        """docx4j fork: keep a value that is not exactly a lexical form, as its text.
+
+        See `ParserConfig.exact_types`. XSD's whitespace rule would have
+        converted the value, so it's kept on purpose and without a warning,
+        unless the config fails on converter warnings: under that, every
+        value must convert, and `UnionNode` relies on a candidate type
+        failing.
+
+        Args:
+            meta: The xml meta instance
+            var: The xml var instance
+            config: The parser config instance
+            source: The text the value was read with
+
+        Returns:
+            The source text.
+
+        Raises:
+            ParserError: If the config fails on converter warnings.
+        """
+        if config.fail_on_converter_warnings:
+            raise ParserError(
+                "Failed to convert value for "
+                f"`{meta.clazz.__qualname__}.{var.name}`\n"
+                f"  `{source}` is not exactly a lexical form of its type"
+            )
+
+        return source
+
+    @classmethod
+    def build_converter_plan(cls, var: XmlVar) -> tuple[int, Any, Any, int]:
         """Resolve the converter for a var with a single declared type.
 
         docx4j fork: the answer `converter.deserialize` works out for every
@@ -227,8 +332,10 @@ class ParserUtils:
 
         Returns:
             The generation, the converter instance or None, the data type,
-            and whether a value of that type may keep its spelling
-            (`ParserConfig.lexical_types`, stage 12).
+            and the type's kind: whether a value of it may keep its spelling
+            (`PLAN_LEXICAL`, `ParserConfig.lexical_types`, stage 12), may be
+            read exactly (`PLAN_BOOL`, `PLAN_ENUM`, `ParserConfig.exact_types`,
+            stage 13), or neither (`PLAN_PLAIN`).
         """
         types = var.types
         if len(types) == 1:
@@ -238,12 +345,30 @@ class ParserUtils:
                     converter.generation,
                     converter.type_converter(data_type),
                     data_type,
-                    data_type in LEXICAL_CLASSES,
+                    cls.plan_kind(data_type),
                 )
             except ConverterError:
                 pass
 
-        return converter.generation, None, None, False
+        return converter.generation, None, None, PLAN_PLAIN
+
+    @classmethod
+    def plan_kind(cls, data_type: type) -> int:
+        """docx4j fork: the converter plan kind of a var's single declared type.
+
+        Args:
+            data_type: The var's type
+
+        Returns:
+            One of `PLAN_PLAIN`, `PLAN_LEXICAL`, `PLAN_BOOL` and `PLAN_ENUM`.
+        """
+        if data_type in LEXICAL_CLASSES:
+            return PLAN_LEXICAL
+        if data_type is bool:
+            return PLAN_BOOL
+        if isinstance(data_type, EnumMeta):
+            return PLAN_ENUM
+        return PLAN_PLAIN
 
     @classmethod
     def parse_value(
@@ -254,6 +379,7 @@ class ParserUtils:
         ns_map: dict | None = None,
         tokens_factory: Callable | None = None,
         format: str | None = None,
+        exact_types: frozenset[type] = frozenset(),
     ) -> Any:
         """Convert a value to a python primitive type.
 
@@ -265,6 +391,9 @@ class ParserUtils:
             tokens_factory: A callable factory for the converted values
                 if the element is derived from xs:NMTOKENS
             format: The format argument for base64/hex values or dates.
+            exact_types: docx4j fork: `ParserConfig.exact_types`, passed to
+                the converters only when there are any, so that a converter
+                registered with a narrower signature sees upstream's call
 
         Returns:
             The converted value or values.
@@ -275,14 +404,18 @@ class ParserUtils:
 
             return default
 
+        # docx4j fork: see `exact_types` above.
+        extra = {"exact_types": exact_types} if exact_types else {}
         if tokens_factory:
             value = value if collections.is_array(value) else value.split()
             return tokens_factory(
-                converter.deserialize(val, types, ns_map=ns_map, format=format)
+                converter.deserialize(val, types, ns_map=ns_map, format=format, **extra)
                 for val in value
             )
 
-        return converter.deserialize(value, types, ns_map=ns_map, format=format)
+        return converter.deserialize(
+            value, types, ns_map=ns_map, format=format, **extra
+        )
 
     @classmethod
     def normalize_content(cls, value: str | None) -> str | None:

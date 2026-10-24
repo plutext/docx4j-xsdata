@@ -1381,3 +1381,72 @@ No test changed.
 [REBASING.md, "Releasing"](REBASING.md#releasing), steps 2 to 5, with `26.2.2` for `26.2.1`. The
 push is an ordinary one, since the base is unchanged since `26.2.1`. The tag is
 `docx4j-v26.2.2`, its message `docx4j_xsdata on upstream v26.2, fork release 2`.
+
+## Stage 13 — docx4j-python CR-018: values read exactly as written
+
+Asked for by docx4j-python's CR-018, which reads run properties as Word 365 does. Word's rule for an
+ST_OnOff `w:val` (`b`, `i`, `caps`, `vanish` and the rest), measured 2026-10-24: **off for exactly
+`false`, `off` or `0`, case-sensitive and untrimmed; on for anything else**, including `" false"`,
+`"false "`, `""`, `"TRUE"` and `"no"`. Word reads `u`, `highlight`, `vertAlign` and `em` case-exactly
+too. XSD collapses the whitespace of an xs:boolean or an enumeration value before it is matched, and
+the converter follows XSD: `w:val=" false"` read False and was saved `"0"`, so a save turned a run
+Word shows bold into one it shows not bold, and `w:highlight=" yellow"` was saved `"yellow"`.
+docx4j-python's rule is that a save never changes meaning.
+
+### 29. `parsers/` and `formats/converter.py`: `ParserConfig(exact_types=...)`, values read exactly as written
+
+In `parsers/config.py`, `parsers/utils.py`, `formats/converter.py` and `models/elements.py`. One new
+option, off (empty) by default:
+
+- `exact_types: frozenset[type]`, of `bool` and `Enum` (any other type raises `ValueError`; `Enum`
+  stands for every enumeration). For a type there, a value converts only from a lexical form exactly
+  as written: `true`, `false`, `1` or `0` for an xs:boolean, a member's value for an enumeration of
+  strings.
+- A value that is not exactly one is bound as the text it was read with, and the serializer writes
+  it back as read (a str is written as it is; nothing in the serializer changes). Two cases:
+  - **kept on purpose**, when XSD's whitespace rule would have converted it (`" false"`,
+    `" yellow"`): silently, with no warning;
+  - **a failure**, when no rule converts it (`"off"`, `"Yellow"`): the usual ConverterWarning, as
+    without the option.
+  
+  Under `fail_on_converter_warnings` both raise `ParserError`: strict parsing wants every value
+  converted, and `UnionNode` relies on it, trying each candidate type under that setting and taking
+  a raise as "not this type".
+- `BoolConverter.deserialize` and `EnumConverter.deserialize` take an `exact_types` keyword. With
+  their type in it, a string is matched as written: BoolConverter does not strip it, and for
+  EnumConverter a member of string value matches only its value exactly (members of other values
+  match as before). `ParserUtils.parse_value` passes the keyword to the converters only when there
+  are exact types, so a converter registered with a narrower signature sees upstream's call.
+- The scope is every value the parser converts through `ParserUtils.parse_var`: attributes, element
+  text, simple content, `xsi:type`-typed values, union members and list tokens. A list is split as
+  XSD says and each token is matched exactly. In a union only the boolean or enumeration member is
+  exact, and the others keep their own rule: `" 1"` in a `bool | int` union is 1, by int's.
+  Enumerations of other values, and every other type, are untouched.
+
+**The fast path.** Stage 6's converter plan (item 14) is per var and shared by every config, so the
+option is not part of it. Its fourth entry, stage 12's "may keep its spelling", widens from a bool
+to a kind: `PLAN_PLAIN`, `PLAN_LEXICAL` (float, bytes), `PLAN_BOOL` or `PLAN_ENUM`. A value the
+converter converted is checked against the option only when its kind is boolean or enumeration and
+`exact_types` is set: an xs:boolean against `EXACT_BOOLEANS`, an enumeration member's string value
+against the source. Every other value pays what it paid before; a boolean or enumeration value pays
+one attribute load while the option is off. On the slow path, a value the exact mode refused is
+converted once more without it, only on that failure, to tell a kept value from a failure.
+
+**Tests:** `tests/fork/test_exact_types.py`, 29 with their parameters: off by default, XSD's rule;
+with the option, a boolean and an enumeration not exactly written keep their text under both event
+handlers, and are written back as read; the exact spellings bind as before; a value that is no
+lexical form warns as before, with the option and without; strict parsing raises for a kept value;
+elements, simple content and an `xsi:type` value alike; a list split as XSD says, each token exact;
+a union's other members keep their rule; only the types asked for; enumerations of integers and
+other types untouched; one var parsed under both modes in one process; the tree serializer writes
+the text; an unsupported type refused. 28 fail without the item (the option does not exist); the
+first pins the behaviour without it.
+
+### Test status
+
+`PATH=$PWD/.venv/bin:$PATH .venv/bin/python -m pytest tests -o addopts=""` on CPython 3.14.6:
+
+| | result |
+|---|---|
+| the fork at 26.2.2 | 1668 passed, 1 skipped |
+| after item 29 | **1697 passed, 1 skipped** |

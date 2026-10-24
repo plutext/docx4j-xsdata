@@ -279,11 +279,16 @@ class StringConverter(Converter):
 class BoolConverter(Converter):
     """A bool converter."""
 
-    def deserialize(self, value: Any, **kwargs: Any) -> bool:
+    def deserialize(
+        self, value: Any, exact_types: frozenset[type] = frozenset(), **kwargs: Any
+    ) -> bool:
         """Convert a value to bool.
 
         Args:
             value: The input value
+            exact_types: docx4j fork: `ParserConfig.exact_types`; with `bool`
+                among them a string is matched as written, without the
+                whitespace collapse XSD applies to an xs:boolean
             **kwargs: Unused keyword arguments
 
         Returns:
@@ -294,7 +299,8 @@ class BoolConverter(Converter):
             ConverterError: if the value can't be converted to bool.
         """
         if isinstance(value, str):
-            val = value.strip()
+            # docx4j fork: see `exact_types` above.
+            val = value if bool in exact_types else value.strip()
 
             if val in ("true", "1"):
                 return True
@@ -617,6 +623,7 @@ class EnumConverter(Converter):
         self,
         value: Any,
         data_type: EnumMeta | None = None,
+        exact_types: frozenset[type] = frozenset(),
         **kwargs: Any,
     ) -> Enum:
         """Convert a value to an enum member.
@@ -624,6 +631,10 @@ class EnumConverter(Converter):
         Args:
             value: The input value
             data_type: The enumeration class
+            exact_types: docx4j fork: `ParserConfig.exact_types`; with `Enum`
+                among them a string matches a member of string value only if
+                it is that value as written, without the whitespace collapse
+                XSD applies. Members of other values match as before.
             **kwargs: Additional keyword arguments needed
                 for parsing the value to a python type.
 
@@ -637,9 +648,12 @@ class EnumConverter(Converter):
         if data_type is None or not isinstance(data_type, EnumMeta):
             raise ConverterError(f"'{data_type}' is not an enum")
 
+        written = None  # docx4j fork: the text as written, in the exact mode
         if collections.is_array(value):
             values = value
         elif isinstance(value, str):
+            if Enum in exact_types:
+                written = value
             value = value.strip()
             values = value.split()
         else:
@@ -647,7 +661,11 @@ class EnumConverter(Converter):
 
         length = len(values)
         for member in cast(type[Enum], data_type):
-            if self.match(value, values, length, member.value, **kwargs):
+            real = member.value
+            if written is not None and isinstance(real, str):
+                if real == written:
+                    return member
+            elif self.match(value, values, length, real, **kwargs):
                 return member
 
         raise ConverterError

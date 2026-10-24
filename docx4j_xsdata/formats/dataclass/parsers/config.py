@@ -1,10 +1,14 @@
 from collections.abc import Callable
 from dataclasses import InitVar, dataclass, field
+from enum import Enum
 from typing import Any
 
 from docx4j_xsdata.formats.dataclass.parsers.skipped import SkippedReport
 from docx4j_xsdata.formats.types import T
 from docx4j_xsdata.models.datatype import LEXICAL_CLASSES
+
+#: docx4j fork: the types `ParserConfig.exact_types` may name.
+EXACT_TYPES: frozenset[type] = frozenset((bool, Enum))
 
 
 def default_class_factory(cls: type[T], params: dict[str, Any]) -> T:
@@ -80,6 +84,18 @@ class ParserConfig:
             `XmlLexicalBytes`), and the serializer writes that text. A value
             the converter spells as its source does is bound plain, as is
             every value of the other types. Off (empty) by default.
+        exact_types: docx4j fork: the value types, of `bool` and `Enum`
+            (every enumeration of string values), whose values convert only
+            from a lexical form exactly as written. XSD collapses the
+            whitespace of an xs:boolean or an enumeration value before it is
+            matched, so ``" false"`` reads False and ``" yellow"`` the member
+            ``yellow``, and a save writes ``0`` and ``yellow``; Word reads
+            both literally, and ``" false"`` as on. For a type here, a value
+            that is not exactly one of its lexical forms is bound as the text
+            it was read with, and written back as read: silently when XSD's
+            whitespace rule would have converted it, which is a value kept on
+            purpose, and with the usual conversion warning otherwise. Under
+            `fail_on_converter_warnings` both raise. Off (empty) by default.
 
     Attributes:
         skipped: docx4j fork: the skipped content report, or None when
@@ -102,6 +118,7 @@ class ParserConfig:
     wildcard_class_for: frozenset[str] = frozenset()
     skipped_report: InitVar[bool | SkippedReport] = False
     lexical_types: frozenset[type] = frozenset()
+    exact_types: frozenset[type] = frozenset()
     skipped: SkippedReport | None = field(
         init=False, default=None, compare=False, repr=False
     )
@@ -118,4 +135,10 @@ class ParserConfig:
             raise ValueError(
                 f"lexical_types: no lexical class for {names}; "
                 f"supported: {', '.join(tp.__name__ for tp in LEXICAL_CLASSES)}"
+            )
+        unsupported = set(self.exact_types) - EXACT_TYPES
+        if unsupported:
+            names = ", ".join(sorted(tp.__name__ for tp in unsupported))
+            raise ValueError(
+                f"exact_types: not supported for {names}; supported: bool, Enum"
             )

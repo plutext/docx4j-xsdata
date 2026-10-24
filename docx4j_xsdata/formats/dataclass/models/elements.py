@@ -211,7 +211,7 @@ class XmlVar(MetaMixin):
         # declared type, with the converter factory generation it was resolved
         # under, so that `ParserUtils.parse_var` can convert an attribute or a
         # text value with one call. None until the parser works it out.
-        self.converter_plan: tuple[int, Any, type, bool] | None = None
+        self.converter_plan: tuple[int, Any, type, int] | None = None
         self.is_clazz_union = self.clazz and len(types) > 1
 
         namespace = default_namespace(namespaces)
