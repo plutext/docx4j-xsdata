@@ -1700,3 +1700,62 @@ types asked for; one var parsed under three modes in one process; the converter 
 without the item (the option refuses `int`). The other 4 pin the behaviour without it.
 `tests/fork/test_exact_types.py`'s test of an unsupported type names `float` now, since `int` is
 supported.
+
+### Verified against the real project
+
+docx4j-python at `d3dc747` (CR-021 started, its phase 0 waiting on this stage), on CPython 3.14.6
+with lxml 6.1.3. As for stage 13, the suite and the scripts ran in a scratch copy of its tree, with
+the sibling checkouts its tests read linked in beside it. 26.2.3 is the published wheel, in a
+virtual environment of the same Python and lxml.
+
+docx4j-python's engine already reads with `exact_types={bool, Enum}` (`runtime.EXACT_TYPES`, its
+CR-018), so "off" is stage 14 with that setting, and "on" adds `int`, as its CR-021 phase 0 will.
+A scratch pytest plugin, and a wrapper for the scripts, set `runtime.EXACT_TYPES` for "on".
+
+| | 26.2.3 | stage 14, off | stage 14, on |
+|---|---|---|---|
+| the whole suite | 6578 passed, 9 skipped | the same | 6577 passed, 9 skipped, and 1 more failure (below) |
+| `scripts/roundtrip.py` | 50/50 parts canonically identical, 0 differences, 0 skipped, 0 kept, 34 boolean-spelling respellings | the same | the same |
+| `codegen/generate.sh --check` | | two generations byte identical, and byte identical to the committed tree | |
+
+The 2 failures in every column are `tests/test_codegen_el.py`'s two tests that read the tree from
+git, which a copy is not. The one more "on" failure is `tests/test_parser_configs.py`'s
+`test_the_engine_s_config_reads_exactly`, which pins `runtime.EXACT_TYPES` at `{bool, Enum}`; phase
+0 updates it.
+
+CR-021 section 2.2's forms in `w:spacing/@w:before`, through docx4j-python's parser and serialiser:
+
+| source | 26.2.3, and stage 14 off | stage 14, on |
+|---|---|---|
+| `" 240 "`, `"&#9;240&#10;"` | 240, saved `240` | kept as `exact`, no warning, saved as read |
+| `"1_000"` | 1000, saved `1000` | kept as `invalid`, a warning, saved as read |
+| `"٢٤٠"`, `"２４０"`, `" 240"` | 240, saved `240` | kept as `invalid`, a warning, saved as read |
+| `"+240"`, `"0240"`, `"240"` | 240 | 240 |
+| `"240.5"`, `""` | kept as `invalid`, a warning, saved as read | the same |
+
+**The cost.** `Symbols.docx`'s main part, parsed and marshalled, the median of 15 interleaved runs
+per mode, over three rounds alternating the processes. "None" is no exact types at all, upstream's
+default.
+
+| | parse median, ms, by round | parse minimum, ms | marshal median, ms |
+|---|---|---|---|
+| 26.2.3, none | 200.2, 200.1, 196.6 | 193.7 | 252.2 to 254.4 |
+| 26.2.3, `{bool, Enum}` | 199.6, 203.3, 199.6 | 193.0 | 249.9 to 254.3 |
+| stage 14, none | 200.5, 198.2, 198.5 | 195.8 | 251.1 to 255.0 |
+| stage 14, off (`{bool, Enum}`) | 201.9, 199.2, 201.0 | 196.4 | 249.7 to 253.9 |
+| stage 14, on (`{bool, Enum, int}`) | 202.5, 198.4, 202.1 | 196.3 | 249.0 to 253.2 |
+
+Off is free, and on costs nothing measurable: the spread between rounds, about 4 ms, is larger than
+any difference between the modes. `scripts/bench_marshal.py` over its 14 parts agrees within its
+noise: parse totals of 247 and 242 ms (26.2.3), 244 to 249 (off, four runs) and 241 to 256 (on,
+four runs). One "on" run's 3 ms more on `tables.docx` did not repeat: 18.1 to 18.3 ms in every
+later run of every mode, and 18.04 against 18.13 ms interleaved in one process.
+
+### Test status
+
+`PATH=$PWD/.venv/bin:$PATH .venv/bin/python -m pytest tests -o addopts=""` on CPython 3.14.6:
+
+| | result |
+|---|---|
+| the fork at 26.2.3 | 1713 passed, 1 skipped |
+| after item 32 | **1760 passed, 1 skipped** |
