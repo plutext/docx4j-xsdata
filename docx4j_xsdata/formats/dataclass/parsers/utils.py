@@ -6,7 +6,12 @@ from enum import Enum, EnumMeta
 from typing import Any
 
 from docx4j_xsdata.exceptions import ConverterError, ConverterWarning, ParserError
-from docx4j_xsdata.formats.converter import QNameConverter, converter
+from docx4j_xsdata.formats.converter import (
+    EXACT_INTEGER,
+    XSD_WHITESPACE,
+    QNameConverter,
+    converter,
+)
 from docx4j_xsdata.formats.dataclass.models.elements import XmlMeta, XmlVar
 from docx4j_xsdata.formats.dataclass.parsers.config import ParserConfig
 from docx4j_xsdata.formats.dataclass.parsers.skipped import KEPT_EXACT, KEPT_INVALID
@@ -24,14 +29,19 @@ MISSING = _MissingType()
 # docx4j fork: what a var's converter plan says about its single type, in its
 # fourth entry: nothing, a type whose values may keep their spelling
 # (`ParserConfig.lexical_types`, stage 12), or one whose values may be read
-# exactly (`ParserConfig.exact_types`, stage 13).
+# exactly (`ParserConfig.exact_types`, stages 13 and 14).
 PLAN_PLAIN = 0
 PLAN_LEXICAL = 1
 PLAN_BOOL = 2
 PLAN_ENUM = 3
+PLAN_INT = 4
 
 #: docx4j fork: xs:boolean's lexical forms, exactly as written.
 EXACT_BOOLEANS = frozenset(("true", "false", "1", "0"))
+
+#: docx4j fork: the exact types XSD's whitespace rule is checked with when a
+#: value the exact mode refused is classified (stage 14).
+EXACT_INT = frozenset((int,))
 
 
 class PendingCollection(UserList):
@@ -154,20 +164,37 @@ class ParserUtils:
                 else:
                     # docx4j fork: plan[3] says the type may keep a spelling
                     # (`ParserConfig.lexical_types`, stage 12) or be read
-                    # exactly (`ParserConfig.exact_types`, stage 13), so the
-                    # usual value pays one tuple index for both options.
+                    # exactly (`ParserConfig.exact_types`, stages 13 and 14),
+                    # so the usual value pays one tuple index for both options.
                     kind = plan[3]
-                    if kind:
-                        if kind == PLAN_LEXICAL:
-                            if plan[2] in config.lexical_types:
-                                return cls.keep_lexical(
-                                    result, value, var.format, config.lexical_types
-                                )
-                        elif config.exact_types and cls.is_inexact(
-                            kind, result, value, config.exact_types
+                    if not kind:
+                        return result
+                    if kind == PLAN_LEXICAL:
+                        if plan[2] in config.lexical_types:
+                            return cls.keep_lexical(
+                                result, value, var.format, config.lexical_types
+                            )
+                        return result
+                    if kind == PLAN_INT:
+                        # docx4j fork: the commonest converted type is checked
+                        # here, without a call: an unsigned integer by the
+                        # string methods, any other by the expression. One
+                        # that isn't exact is either kept on purpose or a
+                        # failure, which upstream's path below tells apart
+                        # (stage 14).
+                        if (
+                            int not in config.exact_types
+                            or not isinstance(value, str)
+                            or (value.isascii() and value.isdigit())
+                            or EXACT_INTEGER.fullmatch(value) is not None
                         ):
-                            return cls.keep_inexact(meta, var, config, value)
-                    return result
+                            return result
+                    elif not config.exact_types or not cls.is_inexact(
+                        kind, result, value, config.exact_types
+                    ):
+                        return result
+                    else:
+                        return cls.keep_inexact(meta, var, config, value)
 
         source = value
         try:
@@ -185,20 +212,15 @@ class ParserUtils:
             # whitespace rule converts, is kept on purpose
             # (`ParserConfig.exact_types`); only a failure that remains is
             # warned about.
-            if config.exact_types:
-                try:
-                    cls.parse_value(
-                        value=source,
-                        types=types or var.types,
-                        default=default or var.default,
-                        ns_map=ns_map,
-                        tokens_factory=tokens_factory or var.tokens_factory,
-                        format=format or var.format,
-                    )
-                except ConverterError:
-                    pass
-                else:
-                    return cls.keep_inexact(meta, var, config, source)
+            if config.exact_types and cls.is_kept_on_purpose(
+                source,
+                types or var.types,
+                ns_map,
+                tokens_factory or var.tokens_factory,
+                format or var.format,
+                config.exact_types,
+            ):
+                return cls.keep_inexact(meta, var, config, source)
 
             message = (
                 "Failed to convert value for "
@@ -291,6 +313,58 @@ class ParserUtils:
         )
 
     @classmethod
+    def is_kept_on_purpose(
+        cls,
+        source: Any,
+        types: Sequence[type],
+        ns_map: dict | None,
+        tokens_factory: Callable | None,
+        format: str | None,
+        exact_types: frozenset[type],
+    ) -> bool:
+        """docx4j fork: whether XSD's rule converts a value the exact mode refused.
+
+        See `ParserConfig.exact_types`. Upstream's `bool` and `Enum`
+        converters apply XSD's whitespace rule themselves, so for them the
+        test is that upstream's converters accept the value. Python's `int`
+        accepts more than XSD does, underscores and other scripts' digits,
+        so with `int` among the exact types the value must also convert in
+        the exact mode once XSD's whitespace is stripped (stage 14).
+
+        Args:
+            source: The text the value was read with
+            types: The types to convert it to
+            ns_map: The element namespace prefix-URI map
+            tokens_factory: The var's tokens factory, if it has one
+            format: The var's format
+            exact_types: The types asked for
+
+        Returns:
+            Whether the value is kept on purpose, rather than a failure.
+        """
+        try:
+            cls.parse_value(
+                value=source,
+                types=types,
+                ns_map=ns_map,
+                tokens_factory=tokens_factory,
+                format=format,
+            )
+            if int in exact_types and isinstance(source, str):
+                cls.parse_value(
+                    value=source.strip(XSD_WHITESPACE),
+                    types=types,
+                    ns_map=ns_map,
+                    tokens_factory=tokens_factory,
+                    format=format,
+                    exact_types=EXACT_INT,
+                )
+        except ConverterError:
+            return False
+
+        return True
+
+    @classmethod
     def keep_inexact(
         cls, meta: XmlMeta, var: XmlVar, config: ParserConfig, source: str
     ) -> str:
@@ -345,8 +419,9 @@ class ParserUtils:
             The generation, the converter instance or None, the data type,
             and the type's kind: whether a value of it may keep its spelling
             (`PLAN_LEXICAL`, `ParserConfig.lexical_types`, stage 12), may be
-            read exactly (`PLAN_BOOL`, `PLAN_ENUM`, `ParserConfig.exact_types`,
-            stage 13), or neither (`PLAN_PLAIN`).
+            read exactly (`PLAN_BOOL`, `PLAN_ENUM`, `PLAN_INT`,
+            `ParserConfig.exact_types`, stages 13 and 14), or neither
+            (`PLAN_PLAIN`).
         """
         types = var.types
         if len(types) == 1:
@@ -371,7 +446,8 @@ class ParserUtils:
             data_type: The var's type
 
         Returns:
-            One of `PLAN_PLAIN`, `PLAN_LEXICAL`, `PLAN_BOOL` and `PLAN_ENUM`.
+            One of `PLAN_PLAIN`, `PLAN_LEXICAL`, `PLAN_BOOL`, `PLAN_ENUM` and
+            `PLAN_INT`.
         """
         if data_type in LEXICAL_CLASSES:
             return PLAN_LEXICAL
@@ -379,6 +455,8 @@ class ParserUtils:
             return PLAN_BOOL
         if isinstance(data_type, EnumMeta):
             return PLAN_ENUM
+        if data_type is int:
+            return PLAN_INT
         return PLAN_PLAIN
 
     @classmethod

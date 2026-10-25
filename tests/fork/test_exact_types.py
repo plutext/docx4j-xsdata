@@ -262,5 +262,6 @@ def test_the_tree_serializer_writes_the_text():
 
 
 def test_an_unsupported_type_is_refused():
-    with pytest.raises(ValueError, match="exact_types: not supported for int"):
-        ParserConfig(exact_types=frozenset({int}))
+    # `int` is supported since stage 14 (test_exact_int.py).
+    with pytest.raises(ValueError, match="exact_types: not supported for float"):
+        ParserConfig(exact_types=frozenset({float}))

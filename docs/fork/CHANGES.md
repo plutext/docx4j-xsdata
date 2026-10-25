@@ -1628,3 +1628,75 @@ No test changed.
 push is an ordinary one, since the base is unchanged. The tag is `docx4j-v26.2.3`, its message
 `docx4j_xsdata on upstream v26.2, fork release 3`. Then docx4j-python raises its floor to
 `docx4j-xsdata[lxml]>=26.2.3,<26.3`.
+
+## Stage 14 — docx4j-python CR-021: integers read exactly as written (done)
+
+Asked for by docx4j-python's CR-021, which reads WordprocessingML's integer attributes as Word 365
+does (its question Q2, phase 0). The int converter is Python's `int`, which accepts more than
+xs:integer does: surrounding whitespace, underscores (`"1_000"`) and other scripts' digits
+(`"٢٤٠"`, fullwidth `"２４０"`), and strips Unicode whitespace such as a no-break space. So
+`w:spacing w:before=" 240 "` bound as 240 with no warning and no record, and a save wrote `240`.
+Word refuses a document holding any of those forms (docx4j CR-065's shared probe, 2026-10-26).
+docx4j-python reads Word's integer form with its own reader and drops a refused form at save, and
+for that the parse has to keep the source text whenever it isn't exactly an integer.
+
+### 32. `parsers/` and `formats/converter.py`: `ParserConfig(exact_types=...)` may name `int`
+
+In `parsers/config.py`, `parsers/utils.py` and `formats/converter.py`. Item 29's option takes one
+more type; with `int` not named, every behaviour is 26.2.3's, item 29's included.
+
+- `EXACT_TYPES` is `{bool, Enum, int}`. With `int` among the exact types, a string converts only if
+  it is xs:integer's lexical form as written, `[+-]?[0-9]+` in ASCII digits
+  (`converter.EXACT_INTEGER`). `"+240"`, `"0240"` and `"-0"` convert as before.
+- Any other value is bound as its text and written back as read, in item 29's two cases:
+  - **kept on purpose**, when XSD's whitespace (space, tab, line feed and carriage return,
+    `converter.XSD_WHITESPACE`) is all that stands in the way: `" 240 "`, and `"\t240\n"` in element
+    text. Silently, recorded with reason `exact` (item 30);
+  - **a failure**, when no XSD rule converts it: `"240.5"` and `""` as before, and now `"1_000"`,
+    other scripts' digits, a no-break space and `"+-240"`. The usual ConverterWarning, recorded
+    with reason `invalid`.
+  
+  Under `fail_on_converter_warnings` both raise `ParserError`, as in item 29.
+- `IntConverter.deserialize` takes the `exact_types` keyword, as the boolean and enumeration
+  converters do since item 29.
+- **Telling the two cases apart.** Item 29 calls a refused value kept on purpose when upstream's
+  converters accept it, because the boolean and enumeration converters apply XSD's whitespace rule
+  themselves. Python's `int` accepts more than XSD, so with `int` named that test alone would call
+  `"1_000"` kept on purpose. `ParserUtils.is_kept_on_purpose` adds a second test when `int` is
+  named: the text with XSD's whitespace stripped must convert in the exact mode for `int`
+  (`EXACT_INT`). Both run only on that failure path.
+- The scope is item 29's: attributes, element text, simple content, `xsi:type`-typed values, list
+  tokens and union members. **In a union, int's member is exact too**, as boolean and enumeration
+  members are (the user's decision, 2026-10-26):
+  - in a union with `str`, the string member takes a value int refuses, so `" 240"` binds as
+    `" 240"`, a str, and nothing is kept or recorded. A decimal already did that there;
+  - in a union without `str`, a value no member takes is kept: `" 1"` in a `bool | int` union is
+    kept on purpose, where item 29 alone bound 1, and `"1_000"` is a failure.
+  
+  docx4j-python's model has 35 such fields, all attributes and none in `w`, `w14` or `w15`. Its
+  normaliser writes the integer Python's `int` would have bound there, keeping its output outside
+  those namespaces as it was (its CR-021 D5).
+- An enumeration of integers is the `Enum` rule's, which matches members of non-string values as
+  before (item 29), so `" 2"` and `"0_2"` still match the member 2.
+
+**The fast path.** The converter plan's kind gains `PLAN_INT`. int is the commonest converted type
+(8,547 of the 30,444 values a parse of docx4j-python's `Symbols.docx` converts), so a converted int
+is checked in `parse_var` itself, without a call, and only when `exact_types` names `int`:
+`str.isascii()` and `str.isdigit()` confirm the common unsigned value, and `EXACT_INTEGER` checks
+the rest. A value that isn't exact leaves the fast path for upstream's path, which tells a value
+kept on purpose from a failure. Without `int` named, an int value pays two comparisons and a set
+membership test more than before; a first version that called `is_inexact` for every int, as item
+29 does for booleans, cost about 1 ms more per `Symbols.docx` parse with `{bool, Enum}` and as much
+again with `int`.
+
+**Tests:** `tests/fork/test_exact_int.py`, 47 with their parameters: without `int`, Python's `int`
+as before, under no exact types and under item 29's; the lexical form converts as before under both
+event handlers, a large integer too; whitespace alone is kept on purpose, and the other forms are
+invalid, each under both handlers and recorded; a decimal and the empty string warn as before, with
+the option and without; a kept value is written back as read; strict parsing raises for both
+cases; element text and simple content; an `xsi:type` value; a list split as XSD says, each token
+exact; a union with `str` and one without; an enumeration of integers matching as before; only the
+types asked for; one var parsed under three modes in one process; the converter itself. 43 fail
+without the item (the option refuses `int`). The other 4 pin the behaviour without it.
+`tests/fork/test_exact_types.py`'s test of an unsupported type names `float` now, since `int` is
+supported.

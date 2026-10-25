@@ -8,7 +8,7 @@ from docx4j_xsdata.formats.types import T
 from docx4j_xsdata.models.datatype import LEXICAL_CLASSES
 
 #: docx4j fork: the types `ParserConfig.exact_types` may name.
-EXACT_TYPES: frozenset[type] = frozenset((bool, Enum))
+EXACT_TYPES: frozenset[type] = frozenset((bool, Enum, int))
 
 
 def default_class_factory(cls: type[T], params: dict[str, Any]) -> T:
@@ -86,8 +86,8 @@ class ParserConfig:
             `XmlLexicalBytes`), and the serializer writes that text. A value
             the converter spells as its source does is bound plain, as is
             every value of the other types. Off (empty) by default.
-        exact_types: docx4j fork: the value types, of `bool` and `Enum`
-            (every enumeration of string values), whose values convert only
+        exact_types: docx4j fork: the value types, of `bool`, `Enum`
+            (every enumeration of string values) and `int`, whose values convert only
             from a lexical form exactly as written. XSD collapses the
             whitespace of an xs:boolean or an enumeration value before it is
             matched, so ``" false"`` reads False and ``" yellow"`` the member
@@ -100,6 +100,16 @@ class ParserConfig:
             skipped report, if there is one, records both
             (`SkippedReport.kept`). Under `fail_on_converter_warnings` both
             raise. Off (empty) by default.
+
+            `int` (stage 14) converts only xs:integer's lexical form as
+            written, ``[+-]?[0-9]+`` in ASCII digits. Python's `int` also
+            accepts surrounding whitespace, underscores (``"1_000"``) and
+            other scripts' digits; Word refuses a document holding any of
+            them. Whitespace alone is a value kept on purpose; the others
+            are kept with the warning, since no XSD rule converts them. As
+            for `bool` and `Enum`, the exact rule applies wherever the type
+            converts, union members and list tokens too. An enumeration of
+            integers is the `Enum` rule's, and matches as before.
 
     Attributes:
         skipped: docx4j fork: the skipped content report, or None when
@@ -144,5 +154,5 @@ class ParserConfig:
         if unsupported:
             names = ", ".join(sorted(tp.__name__ for tp in unsupported))
             raise ValueError(
-                f"exact_types: not supported for {names}; supported: bool, Enum"
+                f"exact_types: not supported for {names}; supported: bool, Enum, int"
             )

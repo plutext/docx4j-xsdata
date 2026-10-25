@@ -328,14 +328,30 @@ class BoolConverter(Converter):
         return "true" if value else "false"
 
 
+#: docx4j fork: xs:integer's lexical form, in ASCII digits, for
+#: `ParserConfig.exact_types` (stage 14).
+EXACT_INTEGER = re.compile(r"[+-]?[0-9]+")
+
+#: docx4j fork: the characters XSD's whitespace rule strips: space, tab,
+#: line feed and carriage return.
+XSD_WHITESPACE = " \t\n\r"
+
+
 class IntConverter(Converter):
     """An int converter."""
 
-    def deserialize(self, value: Any, **kwargs: Any) -> int:
+    def deserialize(
+        self, value: Any, exact_types: frozenset[type] = frozenset(), **kwargs: Any
+    ) -> int:
         """Convert a value to int.
 
         Args:
             value: The input value
+            exact_types: docx4j fork: `ParserConfig.exact_types`; with `int`
+                among them a string converts only if it is xs:integer's
+                lexical form as written, in ASCII digits, without the
+                surrounding whitespace, underscores and other digits
+                Python's `int` accepts
             **kwargs: Unused keyword arguments
 
         Returns:
@@ -344,6 +360,14 @@ class IntConverter(Converter):
         Raises:
             ConverterError: on value or type errors.
         """
+        # docx4j fork: see `exact_types` above.
+        if (
+            int in exact_types
+            and isinstance(value, str)
+            and EXACT_INTEGER.fullmatch(value) is None
+        ):
+            raise ConverterError(f"Invalid integer literal '{value}'")
+
         try:
             return int(value)
         except (ValueError, TypeError) as e:
