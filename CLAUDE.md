@@ -23,12 +23,13 @@ tag, with each generic fix offered upstream later.
 
 **Status, 2026-10-26:**
 - The base is upstream `v26.2`.
-- **26.2.3** (tag `docx4j-v26.2.3`, stages 1 to 13, items 1 to 31) is on PyPI, published
-  2026-10-24. Before it, **26.2.2** (stages 1 to 12) and **26.2.1** (stages 1 to 8).
-- **Stage 14** (item 32, `int` in `exact_types`, for docx4j-python's CR-021 phase 0) is done on
-  `docx4j`, unreleased. It is meant for **26.2.4**, whose release waits on the user's go; then
-  docx4j-python raises its lower bound to `docx4j-xsdata[lxml]>=26.2.4,<26.3`.
-- The next fork release is **26.2.4**, or **26.3.1** after a rebase.
+- **26.2.4** (tag `docx4j-v26.2.4`, stages 1 to 14, items 1 to 32) is on PyPI, published
+  2026-10-26. Before it, **26.2.3** (stages 1 to 13), **26.2.2** (stages 1 to 12) and **26.2.1**
+  (stages 1 to 8).
+- `docx4j` is pushed up to the 26.2.4 commit. docx4j-python's CR-021 phase 0 uses stage 14, so its
+  next step is raising its lower bound to `docx4j-xsdata[lxml]>=26.2.4,<26.3` and adding `int` to
+  its `runtime.EXACT_TYPES`.
+- The next fork release is **26.2.5**, or **26.3.1** after a rebase.
 
 ## Branches, remotes and the rename
 
