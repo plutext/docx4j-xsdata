@@ -1759,3 +1759,81 @@ later run of every mode, and 18.04 against 18.13 ms interleaved in one process.
 |---|---|
 | the fork at 26.2.3 | 1713 passed, 1 skipped |
 | after item 32 | **1760 passed, 1 skipped** |
+
+## Release 26.2.4 — stage 14
+
+2026-10-26: the fourth fork release on upstream `v26.2`. It carries stage 14 (item 32), which
+docx4j-python's CR-021 phase 0 needs. Nothing in the library changes in this commit: it is the
+version, this section and the gate, as for `26.2.3`.
+
+### The version is `26.2.4`
+
+`__version__ = "26.2.4"` in `docx4j_xsdata/__init__.py`, for the tag `docx4j-v26.2.4`: upstream
+`26.2`, fork release 4, by item 19's scheme. The bump is the last commit before the tag. No test
+asserts the number.
+
+### What it carries
+
+| stage | item | change | asked for by |
+|---|---|---|---|
+| 14 | 32 | `ParserConfig(exact_types=...)` may name `int`: a string converts only if it is `[+-]?[0-9]+` in ASCII digits as written; whitespace alone is kept on purpose, and underscores, other scripts' digits and Unicode whitespace are kept with the warning | docx4j-python CR-021 |
+
+**For a user of `26.2.3`.** The option is off by default, and with `int` not named nothing changes:
+docx4j-python's suite and round trip are identical under both releases with its
+`exact_types={bool, Enum}`. Two things are new whatever the options:
+
+- `IntConverter.deserialize` may be passed an `exact_types` keyword, as the boolean and enumeration
+  converters may since `26.2.3`; only when the option is on, and only through
+  `ParserUtils.parse_value`;
+- `ParserConfig(exact_types=frozenset({int}))` is accepted, where `26.2.3` raised `ValueError`.
+
+### What ships
+
+Built by hand with `python -m build` (build 1.6.1, twine 7.0.0, CPython 3.14.6); the workflow
+builds the same way.
+
+| | | |
+|---|---|---|
+| `docx4j_xsdata-26.2.4-py3-none-any.whl` | 263 KiB, 153 files | `docx4j_xsdata` only, 125 modules among them, as in `26.2.3`; no `.ruff_cache` |
+| `docx4j_xsdata-26.2.4.tar.gz` | 480 KiB, 556 entries | `MANIFEST.in`'s, with `tests/` now 326 entries (`tests/fork/`'s 30 among them); not `tools/`, not `.github/` |
+
+`twine check --strict` passes on both.
+
+### Verified against the real project
+
+Item 19's consumer test. A clean CPython 3.12.13 virtual environment,
+`uv pip install dist/docx4j_xsdata-26.2.4-py3-none-any.whl[lxml,cli]` with `pytest` and
+`markdown-it-py`, and docx4j-python at `2236bad` installed editable with `--no-deps`. Its range
+`>=26.2.3,<26.3` admits `26.2.4`. It ran from a scratch copy of the tree, because an agent was
+working in the checkout.
+
+| | result |
+|---|---|
+| `import docx4j_py` against the wheel's `docx4j_xsdata` | imports; `docx4j_xsdata.__version__` is `26.2.4` |
+| `python -m pytest -m "not slow"` | **5197 passed, 9 skipped**, 1381 deselected, 2 failed (below), 188 s |
+| the same, `runtime.EXACT_TYPES` with `int` added | 5196 passed, 9 skipped, 1381 deselected, 3 failed (below), 188 s |
+| `codegen/generate.sh --check`, `DOCX4J_PY_VENV` the clean environment | reproducible, two generations byte identical, and identical to the committed `docx4j_py/` and `codegen/` |
+
+The 2 failures are `tests/test_codegen_el.py`'s two tests that read the tree from git, which a
+copy is not, as in stage 14's verification. The one more with `int` is
+`tests/test_parser_configs.py`'s `test_the_engine_s_config_reads_exactly`, which pins
+`runtime.EXACT_TYPES` at `{bool, Enum}`; CR-021's phase 0 updates it.
+
+### Test status
+
+`PATH=$PWD/.venv/bin:$PATH .venv/bin/python -m pytest tests -o addopts=""` on CPython 3.14.6:
+
+| | result |
+|---|---|
+| the fork after stage 14 | 1760 passed, 1 skipped |
+| after the version bump | **1760 passed, 1 skipped** |
+
+No test changed. CI (`tests.yml`) passed on stage 14's commit `ef1a7c50`: CPython 3.10 to 3.14 and
+the minimum installation.
+
+### Releasing
+
+[REBASING.md, "Releasing"](REBASING.md#releasing), steps 2 to 5, with `26.2.4` for `26.2.1`. The
+push is an ordinary one, since the base is unchanged. The tag is `docx4j-v26.2.4`, its message
+`docx4j_xsdata on upstream v26.2, fork release 4`. Then docx4j-python raises its floor to
+`docx4j-xsdata[lxml]>=26.2.4,<26.3`, and its `runtime.EXACT_TYPES` gains `int`.
