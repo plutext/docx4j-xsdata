@@ -23,15 +23,13 @@ tag, with each generic fix offered upstream later.
 
 **Status, 2026-11-03:**
 - The base is upstream `v26.2`.
-- **26.2.4** (tag `docx4j-v26.2.4`, stages 1 to 14, items 1 to 32) is on PyPI, published
-  2026-10-26. Before it, **26.2.3** (stages 1 to 13), **26.2.2** (stages 1 to 12) and **26.2.1**
-  (stages 1 to 8).
-- `docx4j` is pushed up to the 26.2.4 commit. docx4j-python's CR-021 phase 0 is done: its lower
-  bound is `docx4j-xsdata[lxml]>=26.2.4,<26.3` and its `runtime.EXACT_TYPES` has `int`.
-- **26.2.5** (stage 15, item 33, `ParserConfig(recover=...)`, for docx4j-python's CR-031 phase 0)
-  is prepared and not yet published: `__version__` is `26.2.5`, and the version commit is the one
-  the tag `docx4j-v26.2.5` goes on. Publishing is the user's (`REBASING.md` "Releasing", steps 2
-  to 5). After it, the next fork release is **26.2.6**, or **26.3.1** after a rebase.
+- **26.2.5** (tag `docx4j-v26.2.5`, stages 1 to 15, items 1 to 33) is on PyPI, published
+  2026-11-03. Before it, **26.2.4** (stages 1 to 14), **26.2.3** (stages 1 to 13), **26.2.2**
+  (stages 1 to 12) and **26.2.1** (stages 1 to 8).
+- `docx4j` is pushed up to the 26.2.5 commit. docx4j-python's CR-031 phase 0 uses stage 15, so its
+  next step is raising its lower bound to `docx4j-xsdata[lxml]>=26.2.5,<26.3` and passing
+  `recover=False` in its `runtime.parser_config` (its CR-031 phase A).
+- The next fork release is **26.2.6**, or **26.3.1** after a rebase.
 
 ## Branches, remotes and the rename
 
