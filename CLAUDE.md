@@ -28,9 +28,10 @@ tag, with each generic fix offered upstream later.
   (stages 1 to 8).
 - `docx4j` is pushed up to the 26.2.4 commit. docx4j-python's CR-021 phase 0 is done: its lower
   bound is `docx4j-xsdata[lxml]>=26.2.4,<26.3` and its `runtime.EXACT_TYPES` has `int`.
-- **Stage 15** (item 33, `ParserConfig(recover=...)`) is committed, 2026-11-03, for docx4j-python's
-  CR-031 phase 0, which waits on its release. The next fork release is **26.2.5**, carrying it, or
-  **26.3.1** after a rebase.
+- **26.2.5** (stage 15, item 33, `ParserConfig(recover=...)`, for docx4j-python's CR-031 phase 0)
+  is prepared and not yet published: `__version__` is `26.2.5`, and the version commit is the one
+  the tag `docx4j-v26.2.5` goes on. Publishing is the user's (`REBASING.md` "Releasing", steps 2
+  to 5). After it, the next fork release is **26.2.6**, or **26.3.1** after a rebase.
 
 ## Branches, remotes and the rename
 

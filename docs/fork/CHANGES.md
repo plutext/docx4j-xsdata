@@ -1931,3 +1931,88 @@ parse in place of a constant, outside the per-element loop. The one 208 ms run d
 |---|---|
 | the fork at 26.2.4 | 1760 passed, 1 skipped |
 | after item 33 | **1817 passed, 1 skipped** |
+
+## Release 26.2.5 — stage 15
+
+2026-11-03: the fifth fork release on upstream `v26.2`. It carries stage 15 (item 33), which
+docx4j-python's CR-031 phase 0 needs. Nothing in the library changes in this commit: it is the
+version, this section and the gate, as for `26.2.4`.
+
+### The version is `26.2.5`
+
+`__version__ = "26.2.5"` in `docx4j_xsdata/__init__.py`, for the tag `docx4j-v26.2.5`: upstream
+`26.2`, fork release 5, by item 19's scheme. The bump is the last commit before the tag. No test
+asserts the number.
+
+### What it carries
+
+| stage | item | change | asked for by |
+|---|---|---|---|
+| 15 | 33 | `ParserConfig(recover=...)`: with `False` the lxml event handler reads without libxml2's recovery, so a part that is not well formed raises `ParserError` with lxml's reason instead of being mended silently; `True`, the default, is upstream's `iterparse(recover=True)` | docx4j-python CR-031 |
+
+**For a user of `26.2.4`.** The option is `True` by default, and with it unset nothing changes:
+docx4j-python's suite and round trip are identical under both releases. Two things are new whatever
+the option:
+
+- `ParserConfig` accepts `recover=`, where `26.2.4` raised `TypeError`;
+- a `ParserError` raised for a `SyntaxError` from either event handler now has that error as its
+  `__cause__` (`raise ... from e`), where before it was the `__context__` only. The message is the
+  same.
+
+### What ships
+
+Built by hand with `python -m build` (build 1.6.1, twine 7.0.0, through `uvx`, CPython 3.14.6);
+the workflow builds the same way.
+
+| | | |
+|---|---|---|
+| `docx4j_xsdata-26.2.5-py3-none-any.whl` | 263 KiB, 153 files | `docx4j_xsdata` only, 125 modules among them, as in `26.2.4`; no `.ruff_cache` |
+| `docx4j_xsdata-26.2.5.tar.gz` | 488 KiB, 558 entries | `MANIFEST.in`'s, with `tests/` now 327 entries (`tests/fork/`'s 31 among them); not `tools/`, not `.github/` |
+
+`twine check --strict` passes on both.
+
+### Verified against the real project
+
+Item 19's consumer test. A clean CPython 3.12.13 virtual environment,
+`uv pip install dist/docx4j_xsdata-26.2.5-py3-none-any.whl[lxml,cli]` with `pytest` 9.2.0 and
+`markdown-it-py` 4.2.0 (lxml 6.1.3), and docx4j-python at `9825b87` installed editable with
+`--no-deps`. Its range `>=26.2.4,<26.3` admits `26.2.5`. It ran from the scratch copy of its tree
+stage 15's verification used, because an agent was working in the checkout.
+
+| | result |
+|---|---|
+| `import docx4j_py` against the wheel's `docx4j_xsdata` | imports; `docx4j_xsdata.__version__` is `26.2.5` |
+| `python -m pytest -m "not slow"` | **6822 passed, 17 skipped**, 1699 deselected, 3 failed (below), 206 s |
+| the same, `recover=False` through `runtime.parser_config` | 6819 passed, 17 skipped, 1699 deselected, 6 failed (below), 207 s |
+| `codegen/generate.sh --check`, `DOCX4J_PY_VENV` the clean environment | reproducible, two generations byte identical, and identical to the tree at `9825b87` (`docx4j_py/` and `codegen/`) |
+
+The 3 failures in both rows: `tests/test_codegen_el.py`'s two tests that read the tree from git,
+which a copy is not, as in every stage's verification; and `tests/test_validator.py`'s
+`test_a_finding_is_plain_data_with_to_dict`, which is docx4j-python's own and CPython 3.12's only:
+assigning to a name that is not a field of its frozen, slotted `MisplacedContent` (the `ClassVar`
+`code`) raises `TypeError: super(type, obj): obj must be an instance or subtype of type` from the
+dataclass's generated `__setattr__` on 3.12, where the test expects `AttributeError` and 3.13 and
+3.14 give it; a real field raises `FrozenInstanceError` on every version. It fails the same with the
+option off and on, and is unrelated to the fork; docx4j-python's CI on 3.12 had shown it since
+2026-10-29, and its `fa3a82c` assigns a field instead. The 3 more with the option on are
+the ones stage 15's verification lists, which CR-031 phase A fixes on that side.
+
+### Test status
+
+`PATH=$PWD/.venv/bin:$PATH .venv/bin/python -m pytest tests -o addopts=""` on CPython 3.14.6:
+
+| | result |
+|---|---|
+| the fork after stage 15 | 1817 passed, 1 skipped |
+| after the version bump | **1817 passed, 1 skipped** |
+
+No test changed. CI (`tests.yml`) runs when `docx4j` is pushed; stage 15's commits `77398949` and
+`3707be91` have not been pushed at the time of this commit.
+
+### Releasing
+
+[REBASING.md, "Releasing"](REBASING.md#releasing), steps 2 to 5, with `26.2.5` for `26.2.1`. The
+push is an ordinary one, since the base is unchanged. The tag is `docx4j-v26.2.5`, its message
+`docx4j_xsdata on upstream v26.2, fork release 5`. Then docx4j-python raises its floor to
+`docx4j-xsdata[lxml]>=26.2.5,<26.3`, and its `runtime.parser_config` passes `recover=False`
+(CR-031 phase A).
