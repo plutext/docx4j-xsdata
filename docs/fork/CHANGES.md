@@ -1837,3 +1837,54 @@ the minimum installation.
 push is an ordinary one, since the base is unchanged. The tag is `docx4j-v26.2.4`, its message
 `docx4j_xsdata on upstream v26.2, fork release 4`. Then docx4j-python raises its floor to
 `docx4j-xsdata[lxml]>=26.2.4,<26.3`, and its `runtime.EXACT_TYPES` gains `int`.
+
+## Stage 15 — docx4j-python CR-031: a part not well formed refused, not mended (done)
+
+Asked for by docx4j-python's CR-031 (phase 0), which refuses a part whose XML is not well formed
+when it is first read, naming the part and the parser's reason, as docx4j does (its CR-065 D1).
+The lxml event handler reads with `etree.iterparse(recover=True)`, upstream's setting, so libxml2's
+recovery mends such a part with no report and the skipped report stays empty: a cut `document.xml`
+is read up to the cut, stray characters and a second root are dropped, the first of a repeated
+attribute is kept, and a cut `document.xml.rels` loads without the parts it named, so an untouched
+save drops a header. Upstream's own handlers disagree on `<a><b>one</b><b>two</b><b>thr`: the lxml
+handler binds `A(b=['one', 'two', 'thr'])`, the native handler raises "no element found", and lxml
+with `process_xinclude=True` raises "Premature end of data". CR-031 sections 2.1 to 2.7 hold the
+measurements, twenty malformations through every route of a document, and section 3.6 upstream's
+behaviour.
+
+### 33. `parsers/`: `ParserConfig(recover=...)`, the lxml handler without recovery
+
+In `parsers/config.py`, `parsers/handlers/lxml.py` and `parsers/bases.py`. One boolean, `True` by
+default, which is upstream's behaviour: with the option unset every behaviour is 26.2.4's.
+
+- `ParserConfig(recover: bool = True)`: whether the lxml handler recovers from XML that is not well
+  formed. `LxmlEventHandler.parse` passes it to `etree.iterparse` where upstream passes `True`.
+- With `recover=False` the first fatal error raises lxml's `XMLSyntaxError`, which `XmlParser.parse`
+  raises as `ParserError` as it always has (the `except SyntaxError` there already catches it).
+  The objects built before the error are discarded with it, the parser is reusable, and the skipped
+  report holds nothing. The message is lxml's, with the line and column: `Premature end of data in
+  tag b line 1, line 1, column 30`.
+- `raise ParserError(e)` becomes `raise ParserError(e) from e`, for both handlers: lxml's error, with
+  its `lineno` and `position`, is the `__cause__` and `__suppress_context__` is set, where before
+  it was only the `__context__`. Nothing in the package or its tests reads either.
+- Unaffected: the native handler, which never recovers; the `process_xinclude` path, whose
+  `etree.parse` is already strict; and a tree or element source, which `iterwalk` walks already
+  parsed. The option is lxml's only.
+
+**The cost** is one attribute read per parse, in place of a constant, and nothing in the per-element
+loop. docx4j-python measured `iterparse` alone on `Symbols.docx`'s main part (790,857 bytes) at
+13.67 to 13.76 ms recovering and 13.53 to 13.65 ms not, and its whole parse at 196.4 to 199.2
+against 196.2 to 197.9 ms: nothing measurable either way (CR-031 section 2.7).
+
+**Tests:** `tests/fork/test_recover.py`, 57 with their parameters: the default is `True`; twelve
+malformations (a cut, a cut inside a start tag, an undefined entity, a tag mismatch, the root left
+open, a cut end tag, a stray `&`, a stray `<`, a repeated attribute, a control character, a byte that
+is not UTF-8, a second root), each mended by default as before and each refused under
+`recover=False` with lxml's message, the `XMLSyntaxError` as the cause, its line and position;
+`<<a>`, which recovery binds to nothing and the parser reports as "Failed to create target class",
+refused with lxml's reason instead; a well-formed document, with an unknown element and a value kept
+as read, parsing identically under both settings, skipped and kept records included, under both
+handlers; a tree source unaffected; the xinclude path strict under both; the native handler refusing
+all twelve under both, its `ParseError` the cause; nothing bound when refused; and the default with
+the other fork options set, as docx4j-python reads today. 44 fail without the item (the option is
+refused); the other 13 pin the behaviour without it.

@@ -110,6 +110,16 @@ class ParserConfig:
             for `bool` and `Enum`, the exact rule applies wherever the type
             converts, union members and list tokens too. An enumeration of
             integers is the `Enum` rule's, and matches as before.
+        recover: docx4j fork: whether the lxml event handler recovers from
+            XML that is not well formed (``etree.iterparse(recover=True)``,
+            upstream's setting, which is the default). libxml2's recovery
+            reads a cut document up to the cut, drops stray characters and a
+            second root, and keeps the first of a repeated attribute, each
+            with no report. With False the first fatal error raises
+            `ParserError`, lxml's ``XMLSyntaxError`` (its message, ``lineno``
+            and ``position``) as its ``__cause__``, and nothing is bound. The
+            native handler never recovers; ``process_xinclude`` and a tree
+            or element source are already strict. lxml only.
 
     Attributes:
         skipped: docx4j fork: the skipped content report, or None when
@@ -133,6 +143,7 @@ class ParserConfig:
     skipped_report: InitVar[bool | SkippedReport] = False
     lexical_types: frozenset[type] = frozenset()
     exact_types: frozenset[type] = frozenset()
+    recover: bool = True
     skipped: SkippedReport | None = field(
         init=False, default=None, compare=False, repr=False
     )

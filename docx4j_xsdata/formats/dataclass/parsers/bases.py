@@ -79,7 +79,9 @@ class NodeParser(PushParser):
             ns_map = self.ns_map if ns_map is None else ns_map
             result = handler.parse(source, ns_map)
         except SyntaxError as e:
-            raise ParserError(e)
+            # docx4j fork: `from e`, so lxml's error, with its `lineno` and
+            # `position`, is the `__cause__` and not only the `__context__`.
+            raise ParserError(e) from e
 
         if result is not None:
             return result

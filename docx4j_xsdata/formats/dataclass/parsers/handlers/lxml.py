@@ -31,10 +31,13 @@ class LxmlEventHandler(XmlHandler):
             tree.xinclude()
             ctx = etree.iterwalk(tree, EVENTS)
         else:
+            # docx4j fork: `ParserConfig.recover`, upstream's `recover=True`
+            # by default; with False a document that is not well formed
+            # raises instead of being mended.
             ctx = etree.iterparse(
                 source,
                 EVENTS,
-                recover=True,
+                recover=self.parser.config.recover,
                 remove_comments=True,
                 load_dtd=self.parser.config.load_dtd,
             )
