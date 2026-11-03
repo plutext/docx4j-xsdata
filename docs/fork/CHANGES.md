@@ -1888,3 +1888,46 @@ handlers; a tree source unaffected; the xinclude path strict under both; the nat
 all twelve under both, its `ParseError` the cause; nothing bound when refused; and the default with
 the other fork options set, as docx4j-python reads today. 44 fail without the item (the option is
 refused); the other 13 pin the behaviour without it.
+
+### Verified against the real project
+
+docx4j-python at `9825b87` (CR-031 proposed, its phase 0 waiting on this stage), on CPython 3.14.6
+with lxml 6.1.3. As for stages 13 and 14, the suite and the scripts ran in a scratch copy of its
+tree, with the sibling checkouts its tests read linked in beside it, against this checkout
+installed editable. "Off" is the option unset, which is how docx4j-python reads today; "on" is
+`recover=False` set through `runtime.parser_config`, as its CR-031 phase A will, by a scratch
+pytest plugin and a wrapper for the scripts.
+
+| | stage 15, off | stage 15, on |
+|---|---|---|
+| the fast suite (`-m "not slow"`) | 6823 passed, 16 skipped, 2 failed (below) | |
+| the whole suite | | 8519 passed, 16 skipped, 5 failed (below) |
+| `scripts/roundtrip.py` | 50/50 parts canonically identical, 0 differences, 0 skipped, 0 kept, 34 boolean-spelling respellings | the same |
+
+The 2 failures in both columns are `tests/test_codegen_el.py`'s two tests that read the tree from
+git, which a copy is not, as in stages 13 and 14. The 3 more with the option on are the ones CR-031
+section 4.1 expects and its phase A fixes on that side: `test_integer_normal_form.py`'s
+`test_an_empty_rsid_is_dropped_where_nothing_was_kept`, whose fixture writes a duplicate `w:rsidR`
+that lxml now reports as `Attribute w:rsidR redefined` where recovery kept the first value; and
+`test_unreadable_parts.py`'s two tests that assert the reason ``Failed to create target class
+`Document` `` (or `Hdr`), which was recovery's reason for `<<w:document`, now lxml's `StartTag:
+invalid element name`. The corpus round trip, the slow tests among them, passes with the option on.
+
+**The cost.** `scripts/bench_marshal.py`, three runs of each mode alternated in separate processes:
+
+| | `Symbols.docx` parse, ms | `Symbols.docx` marshal, ms | 14 parts, parse total, ms |
+|---|---|---|---|
+| off | 201, 198, 197 | 249, 250, 246 | 246, 244, 242 |
+| on | 199, 208, 199 | 245, 248, 245 | 244, 253, 245 |
+
+Nothing measurable either way, as CR-031 section 2.7 found: the change is one attribute read per
+parse in place of a constant, outside the per-element loop. The one 208 ms run did not repeat.
+
+### Test status
+
+`PATH=$PWD/.venv/bin:$PATH .venv/bin/python -m pytest tests -o addopts=""` on CPython 3.14.6:
+
+| | result |
+|---|---|
+| the fork at 26.2.4 | 1760 passed, 1 skipped |
+| after item 33 | **1817 passed, 1 skipped** |
