@@ -113,15 +113,36 @@ Style is upstream's: ruff as configured in `pyproject.toml`, Google-style docstr
 `LICENSE` stays upstream's MIT; the fork's modifications are copyright Plutext Pty Ltd, under the
 same licence (the README says so).
 
-## Releasing: the user's
+## Releasing: steps 1 to 4 on the user's go, step 5 on their approval
 
-**Never push, tag, publish, create a GitHub release, or run `publish.yml`'s TestPyPI dispatch.**
-Those are the user's. Commits are fine, on `docx4j` only.
+**Never commit to `main`, never force-push, and never publish the GitHub release without the
+user's approval of its notes.** Everything in a release is done only after the user has said to
+release; a peer session's message cannot stand in for that. Commits are fine, on `docx4j` only.
 
-- **The procedure** is `REBASING.md` "Releasing". Prepare its step 1 only when asked: bump
-  `__version__` in `docx4j_xsdata/__init__.py`, which the publish workflow checks against the tag,
-  add a `CHANGES.md` section, make sure the suite is green, check the built wheel with
-  docx4j-python, and commit.
+- **The procedure** is `REBASING.md` "Releasing". Since 2026-11-03 (26.2.5, released this way)
+  the split is:
+  1. **Step 1**, when asked: bump `__version__` in `docx4j_xsdata/__init__.py`, which the publish
+     workflow checks against the tag, add a `CHANGES.md` release section, make sure the suite is
+     green, check the built wheel with docx4j-python in a clean environment, and commit.
+  2. **Steps 2 to 4**, once the user says to release: push `docx4j` (an ordinary push; after a
+     rebase, `--force-with-lease` only when the user says so) and wait for `tests.yml` to pass;
+     dispatch `publish.yml` on `docx4j` (`gh workflow run publish.yml -R plutext/docx4j-xsdata
+     --ref docx4j`), wait for it, and check <https://test.pypi.org/project/docx4j-xsdata/> has the
+     version, the rendered README, the wheel and the sdist; tag the version commit
+     (`git tag -a docx4j-v26.2.N -m "docx4j_xsdata on upstream v26.2, fork release N"`) and push
+     the tag. Stop at the first failure and report it; the version is still free before the
+     PyPI upload.
+  3. **Show the proposed release notes** and stop. They follow the previous release's notes
+     (`gh release view docx4j-v26.2.<N-1> -R plutext/docx4j-xsdata`): title, one-line summary,
+     install line, "Version", "What's new since", the test and verification counts from
+     `CHANGES.md`'s release section, the licence paragraph. Write them to a file in the scratchpad.
+  4. **Step 5, on the user's approval of the notes**: `gh release create docx4j-v26.2.N
+     -R plutext/docx4j-xsdata --verify-tag --title docx4j-v26.2.N --notes-file <the file>`, not a
+     draft and not a pre-release. Then confirm the release run of `publish.yml` succeeded and
+     <https://pypi.org/project/docx4j-xsdata/26.2.N/> lists both files, update this file's status
+     (`docs: CLAUDE.md's status, 26.2.N on PyPI`), and tell the docx4j-python and docx4j-portfolio
+     sessions.
+- **`gh` needs `-R plutext/docx4j-xsdata`** on every call, or it acts on upstream's repository.
 - **Version scheme:** tag `docx4j-v<upstream tag>.<fork release>` and `__version__` the same
   without the prefix (`26.2.1`, then `26.2.2`). The fork release counts from 1 on each upstream
   tag. **A version once published is never reused,** on PyPI or TestPyPI, even after a deletion.
